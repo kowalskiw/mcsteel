@@ -28,12 +28,10 @@ class Thermal:
                 [init.insert(n+1, i) for i in ['BEAM_TYPE {}\n'.format(self.beam_type()), 'frame.in\n']]
 
             elif l.startswith('   F  '):        # heating boundaries
-                print(l.split('FISO'))
                 if self.model == 'CFD':
                     init[n] = 'FLUX {}'.format('CFD'.join(l[4:].split('FISO')))
                 elif self.model == 'LCF':
                     init[n] = 'FLUX {}'.format('LOCAFI'.join(l[4:].split('FISO')))
-                    print(init[n])
                 # elif self.model == 'HSM':
                 #     init[n] = 'FLUX {}'.format('HSM'.join(l.split('FISO')[1:]))
 
@@ -87,7 +85,7 @@ class Thermal:
             if self.model == 'CFD':
                 index = tem.index('       CFD\n')  # if model == CFD
             elif self.model == 'LCF':
-                index = tem.index('       LCF\n')  # if model == LCF
+                index = tem.index('    LOCAFI\n')  # if model == LCF
             # elif self.model == 'HSM':
             #     index = tem.index('       HSM\n')   # if model == HSM
         except ValueError:
@@ -158,7 +156,7 @@ class Mechanical:
             self.change_in()
             self.copy_tems()
             run_safir('frame')
-            print('{}-data structural 3D analysis finished'.format(self.model))
+            print('Natural fire structural 3D analysis finished')
         
 
 # running SAFIR simulation in shell
@@ -177,13 +175,15 @@ if __name__ == '__main__':
     for f in reversed(folders):
         if not f.endswith('.gid'):
             folders.remove(f)
-
+    
+    # these commented lines below are for ISO analysis, probably not necessary in common use
     ### for prof in folders:
     ###     Thermal(prof, model).run()
 
-    Mechanical(folders).run()       # frame structural analysis - ISO curve
-
+    ### Mechanical(folders).run()       # frame structural analysis - ISO curve
+    
     for prof in folders:                        # calculating meshed sections
+        print(prof)
         Thermal(prof, model, mode='NF').run()   # natural fire mode
 
     Mechanical(folders, mode='NF').run()        # frame structural analysis - natural fire
