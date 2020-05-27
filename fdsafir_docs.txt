@@ -1,0 +1,39 @@
+======PL======
+
+'''Skrypt fdsafir.py pozwala na automatyczne uruchomienie symulacji wykorzystujących pożar lokalny (HASEMI/LOCAFI) lub dane z FDS.'''
+
+
+1. Stwórz pliki analizy termicznej 2D (profile) i jako oddziaływanie (conditions) dodaj krzywą ISO (FISO). Krawędzie poddane oddziaływaniu krzywej ISO powinny być tożsame z krawędziami eksponowanymi w przypadku działania pożaru lokalnego. Przeprowadź analizę.
+
+2. Stwórz plik analizy mechanicznej 3D (konstrukcja) i nazwij go 'frame.gid'. Jako właściwości elementów (properties) użyj nazwy pliku TEM jak przy analizie na krzywą ISO. Przeprowadź analizę. /Wystąpi błąd ponieważ nie skopiowałeś plików TEM - nie przejmuj się tym!/
+
+3. Pliki pożaru naturalnego (cfd.txt/locafi.txt) powinny znajdować się w tym samym folderze, w którym przechowywane są wszysktie katalogi symulacji (z rozszerzeniem .gid). W tej samej lokalizacji uruchom skrypt fdsafir.py. Jako argument podaj rodzaj modelu pożaru lokalnego (HSM/LCF/CFD).
+Na razie działa tylko dla CFD i LOCAFI! Hasemiego na razie nie dodaję bo nie korzystamy z niego.
+
+Istnieją duże szanse, że skrypt wykona za Ciebie resztę pracy, powodzenia!
+
+
+======ENG======
+
+'''fdsafir.py allows to run automatically SAFIR simulation with LOCAFI fire or CFD data'''
+
+	How to use?
+
+1. Create thermal 2d files (using GiD and SAFIR problemtypes) and as conditions (forntiers) use ISO fire curve (FISO). Boundaries exposed to fire should be identical with those exposed to natural fire. Run analysis.
+
+2. Create structural 3d file and name it 'frame.gid'. As elements' properties set TEM files form previous step. Run analisys.
+/An error will occur due to lack of TEM files in frame.gid catalogue - don't worry, it's OK/
+
+3. Make sure that tou have natural fire file (cfd.txt or locafi.txt) in the same directory as simulations (frame.gid and others). Run fdsafir.py script in simulations' parent directory. Use 'CFD' or 'LCF' as an argument respectively for FDS data or LOCAFI fire.
+
+You have a real shot at having nothing else to do. Script should make proper configuraiton and run required simulations. Be aware of limits and read carefully the output if any error occured. Good luck!
+
+
+
+
+-------------------
+DO ZROBIENIA
+0) dodaj obliczenia na ISO (?)
+1) obliczyć testową ramkę w 'archiv'
+2) sprawdzić czy hula dla LCF oraz HSM, powinno być dobrze lub konieczne delikatne poprawki po debugowaniu
+3) opublikować (redmine + github)
