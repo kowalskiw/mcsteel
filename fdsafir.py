@@ -71,7 +71,7 @@ class Thermal:
 
         # picking first TEM file
         for f in listdir(getcwd()):
-            if f.endswith('.tem'):
+            if f.endswith('.tem') and f.startswith('b'):
                 first_b = f
                 break
 
@@ -127,11 +127,12 @@ class Mechanical:
             init = file.readlines()
 
         for n in range(len(init)):      # sections TEM files
-            l = init[n]
+            l = init[n]                 # line of frame.in file
             if l.endswith('.tem\n'):
-                for f in listdir('{}.gid'.format(l[:-5])):
+                for f in listdir('{}.gid'.format(l[:-5])):      # iterate over files in section dir
                     if f.endswith('.tem') and f.startswith('b'):
                         init[n] = '{}\n'.format(f)
+                        break
 
         with open('{0}\{1}.gid\{1}.in'.format(getcwd(), 'frame'), 'w') as file:
             file.writelines(init)
@@ -182,9 +183,8 @@ if __name__ == '__main__':
 
     ### Mechanical(folders).run()       # frame structural analysis - ISO curve
     
-    for prof in folders:                        # calculating meshed sections
-        print(prof)
-        Thermal(prof, model, mode='NF').run()   # natural fire mode
+    for prof in folders:
+       Thermal(prof, model, mode='NF').run()   # natural fire mode
 
     Mechanical(folders, mode='NF').run()        # frame structural analysis - natural fire
 
