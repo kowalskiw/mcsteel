@@ -169,8 +169,7 @@ def run_safir(chid):
     chdir('..')
 
 
-if __name__ == '__main__':
-    model = argv[1]
+def main(model):
     folders = listdir(getcwd())
     folders.remove('frame.gid')
     for f in reversed(folders):
@@ -189,3 +188,6 @@ if __name__ == '__main__':
     Mechanical(folders, mode='NF').run()        # frame structural analysis - natural fire
 
     print('All SAFIR calculations finished, well done engineer!')
+
+
+main(argv[1])
