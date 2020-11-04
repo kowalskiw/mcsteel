@@ -169,7 +169,10 @@ def run_safir(chid):
     chdir('..')
 
 
-def main(model):
+def main(model, path=getcwd()):
+    wd = getcwd()
+    if path != wd:
+        chdir(path)
     folders = listdir(getcwd())
     folders.remove('frame.gid')
     for f in reversed(folders):
@@ -189,5 +192,10 @@ def main(model):
 
     print('All SAFIR calculations finished, well done engineer!')
 
+    if path != wd:
+        chdir(wd)
 
-main(argv[1])
+
+if __name__ == '__main__':
+
+    main(argv[1], argv[2])
