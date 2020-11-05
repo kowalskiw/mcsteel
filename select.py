@@ -43,9 +43,30 @@ import numpy as np
 # import to pandas DataFrame
 
 '''iterate over DF to select X simulations or 1% of the worst'''
+
+
 # sort DF with time of critical temperature
 # save 1.percentyl or X simulations (if defined) to another DF
 # generate LOCAFI.txt files for each record in chosen DF and save them in different dirs
+
+
+# converting floated string list to numpy array
+def np_flt_tab(tab):
+    for i in range(len(tab)):
+        tab[i] = float(tab[i][:-1])
+    return np.array(tab)
+
+
+# removing '/n' symbol from the end of each string list (tab) elements
+def remove_n(tab):
+    for i in range(len(tab)):
+        tab[i] = tab[i][:-1]
+    return tab
+
+
+# linear interpolation between two points with given first coordinate x_i, returns y_i
+def linear_inter(point1, point2, x_i):
+    return point1[1] + (x_i - point1[0]) / (point2[0] - point1[0]) * (point2[1] - point1[1])
 
 
 class Prepare:
@@ -78,27 +99,13 @@ class Prepare:
 
         fire_row = ozn.index('Localised\n')
 
-        def flt_tab(tab):
-            for i in range(len(tab)):
-                tab[i] = float(tab[i][:-1])
-            return tab
+        # import ozone time table [min] -> [s]
+        time_table = np_flt_tab(remove_n(ozn[fire_row + 9: fire_row + int(float(ozn[fire_row + 8][:-1])) * 2][::2]))*60
 
-        def remove_n(tab):
-            for i in range(len(tab)):
-                tab[i] = tab[i][:-1]
-            return tab
+        # import HRR table [MW] -> [W] and convert to floats
+        hrr_float = np_flt_tab(ozn[fire_row + 9: fire_row + int(float(ozn[fire_row + 8][:-1])) * 2][1::2])*1e6
 
-        def data_to_time(time_list, data_list):
-            curve = []
-            [curve.append('    {}    {}\n'.format(time_list[i], data_list[i])) for i in range(len(data_list))]
-            return curve
-
-        time_table = remove_n(ozn[fire_row + 9: fire_row + int(float(ozn[fire_row + 8][:-1])) * 2][::2])
-
-        # import HRR table and convert to floats
-        hrr_float = flt_tab(ozn[fire_row+9: fire_row + int(float(ozn[fire_row+8][:-1]))*2][1::2])
-
-        # calculate fire area table
+        # calculate fire area [m] table
         max_diam = float(ozn[fire_row + 5][:-1])
         hrrpua = max(hrr_float[1::2]) / max_diam
         diam = np.array(hrr_float) / hrrpua
@@ -112,11 +119,36 @@ class Prepare:
         for i in list(df_row[['abs_x', 'abs_y', 'abs_z']]):
             position = '    '.join([position, str(i)])
 
-        return position, z_ceil, data_to_time(time_table, diam), data_to_time(time_table, hrr_float)
+        return position, z_ceil, self.convert(time_table, diam), self.convert(time_table, hrr_float)
+
+    # convert data [HRR(t) and D(t)] from OZone format (max 120 records) to SAFIR format (max 108 or 20 recs)
+    def convert(self, ozn_time, ozn_data, records=20):
+        safir_data = []
+
+        # create default 20-records time list
+        step = ozn_time[-1] / (records - 1)
+        converted_time = []
+        [converted_time.append(step * i) for i in range(records)]
+
+        # linear interpolation of values accordingly to converted time list
+        inter_values = []
+        for t in converted_time:
+            for i in range(len(ozn_time)):
+                if ozn_time[i] <= t:
+                    inter_values.append(linear_inter((ozn_time[i], ozn_data[i]), (ozn_time[i + 1], ozn_data[i + 1]), t))
+                    break
+                else:
+                    raise OverflowError('There is something wrong with interpolation module')
+
+        # add interpolated values to converted time list
+        [safir_data.append('    {}    {}\n'.format(converted_time[i], inter_values[i])) for i in range(records)]
+
+        return safir_data
 
     def gen_lcf(self, position, z_ceil, diam, hrr):
         # add data to LOCAFI.txt core
         lcf = core.copy()
+
         def ins(arg, index): return lcf[index].split('*')[0] + str(arg) + core[index].split('*')[1]
 
         lcf[2] = ins(position, 2)
@@ -124,9 +156,9 @@ class Prepare:
 
         # add tables of hrr and diameter
 
-        def add(start, tab): [lcf.insert(i+start, tab[i]) for i in range(len(tab))]
+        def add(start, tab): [lcf.insert(i + start, tab[i]) for i in range(len(tab))]
 
-        add(lcf.index('DIAMETER\n')+2, diam)
+        add(lcf.index('DIAMETER\n') + 2, diam)
         add(lcf.index('RHR\n') + 2, hrr)
 
         # return LOCAFI.txt as list
@@ -168,7 +200,7 @@ def main():
 
             try:
                 [copy(gid.path, '{}\{}'.format(dir.path, gid.name)) for gid in scandir('config')
-                if gid.is_dir() and gid.name.endswith('.gid')]
+                 if gid.is_dir() and gid.name.endswith('.gid')]
             except FileExistsError:
                 print('SAFIR-GiD files have been already copied ({})'.format(dir.path))
             # run SAFIR simulation using general model and selected fire
