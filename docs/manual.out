@@ -1,0 +1,9 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [1][-]{section.2}{Requirements}{}% 2
+\BOOKMARK [1][-]{section.3}{Running simulation}{}% 3
+\BOOKMARK [2][-]{subsection.3.1}{Directories tree}{section.3}% 4
+\BOOKMARK [2][-]{subsection.3.2}{Creating model \(GiD\)}{section.3}% 5
+\BOOKMARK [2][-]{subsection.3.3}{Multisimulation \(McOZone\)}{section.3}% 6
+\BOOKMARK [2][-]{subsection.3.4}{Preparing ISO FEM analysis \(SAFIR via GiD problemtypes\)}{section.3}% 7
+\BOOKMARK [2][-]{subsection.3.5}{FEM analises \(McSAFIR\)}{section.3}% 8
+\BOOKMARK [1][-]{section.4}{Results and visualization}{}% 9

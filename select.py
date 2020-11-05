@@ -37,6 +37,7 @@ from core import core
 from shutil import copytree as copy
 import fdsafir
 import numpy as np
+from math import ceil
 
 '''open data, import to DataFrame'''
 # cwd has to be directory where results CSV is stored
@@ -75,20 +76,25 @@ class Prepare:
         self.sim_number = sim_number
 
     def percentile(self):
+        # define how many scenarios will be considered in FEM analyses (default 10%)
         if self.sim_number == 0:
-            len_df = 1000
-            perc = int(0.01 * len_df)
+            perc = ceil(0.01 * len(self.results.index))
         else:
             perc = self.sim_number
 
-        sorted = self.results.sort_values(by=['time_crit'])
-        for i, r in sorted.iterrows():
-            if r['time_crit'] == 0:
-                sorted = sorted.drop([i], axis='index')
+        # sort values by time to exceed temp crit
+        sorted_results = self.results.sort_values(by=['time_crit'])
+        for i, r in sorted_results.iterrows():
+            if r['time_crit'] == 0:     # drop rows where time crit haven't been exceeded
+                sorted_results = sorted_results.drop([i], axis='index')
                 continue
-            else:
-                chosen = sorted.head(n=perc)
+            elif r['time_crit'] != 0:
                 break
+            # when there is no scenario where temp crit have been exceeded
+            sorted_results = self.results.sort_values(by=['t_max'])
+
+        # chose 'perc' first values to further analysis
+        chosen = sorted_results.head(n=perc)
 
         return chosen
 
@@ -102,6 +108,18 @@ class Prepare:
         # import ozone time table [min] -> [s]
         time_table = np_flt_tab(remove_n(ozn[fire_row + 9: fire_row + int(float(ozn[fire_row + 8][:-1])) * 2][::2]))*60
 
+        def check_boundaries(array2d, sim_time):
+            if array2d[0] > 0:
+                array2d = np.insert(array2d, 0, 0.0)
+            if array2d[-1] < sim_time:
+                array2d = np.append(array2d, sim_time)
+
+            return array2d
+
+        time_checked = check_boundaries(time_table, float(ozn[ozn.index('Parameters\n')+6][:-1]))
+        print(ozn[ozn.index('Parameters\n')+6][:-1])
+
+        print(time_checked)
         # import HRR table [MW] -> [W] and convert to floats
         hrr_float = np_flt_tab(ozn[fire_row + 9: fire_row + int(float(ozn[fire_row + 8][:-1])) * 2][1::2])*1e6
 
@@ -119,10 +137,11 @@ class Prepare:
         for i in list(df_row[['abs_x', 'abs_y', 'abs_z']]):
             position = '    '.join([position, str(i)])
 
-        return position, z_ceil, self.convert(time_table, diam), self.convert(time_table, hrr_float)
+        return position, z_ceil, self.convert(time_checked, diam), self.convert(time_checked, hrr_float)
 
     # convert data [HRR(t) and D(t)] from OZone format (max 120 records) to SAFIR format (max 108 or 20 recs)
     def convert(self, ozn_time, ozn_data, records=20):
+
         safir_data = []
 
         # create default 20-records time list
@@ -144,6 +163,8 @@ class Prepare:
         [safir_data.append('    {}    {}\n'.format(converted_time[i], inter_values[i])) for i in range(records)]
 
         return safir_data
+
+
 
     def gen_lcf(self, position, z_ceil, diam, hrr):
         # add data to LOCAFI.txt core
@@ -195,8 +216,6 @@ def main():
     for dir in scandir('results'):
         if dir.is_dir() and dir.name.startswith('sim'):
             # copy general model files (already calculated for ISO curve) to every SAFIR simulation dir
-            print(dir.path)
-            # for i in scandir('config'):
 
             try:
                 [copy(gid.path, '{}\{}'.format(dir.path, gid.name)) for gid in scandir('config')
@@ -204,6 +223,7 @@ def main():
             except FileExistsError:
                 print('SAFIR-GiD files have been already copied ({})'.format(dir.path))
             # run SAFIR simulation using general model and selected fire
+            # print('~python fdsafir.py~')
             fdsafir.main('LCF', dir.path)
 
 
