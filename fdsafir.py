@@ -11,22 +11,34 @@ class Thermal:
         self.chid = chid[:-4]
         self.mode = mode.startswith('ISO')
         self.model = model
+        self.path = getcwd()
 
     # changing input file form iso curve to natural fire mode
     def change_in(self):
         with open('{0}\{1}.gid\{1}.in'.format(getcwd(), self.chid)) as file:
             init = file.readlines()
 
+        # check if the profile is present in frame.in file
+        try:
+            test = init.index('{}.tem\n'.format(self.chid))
+        except ValueError:
+            ValueError('{} profile is not present in frame.in'.format(self.chid))
+
+        # make changes
         for n in range(len(init)):
             l = init[n]
 
-            if l == 'MAKE.TEM\n':       # type of calculation
+            # type of calculation
+            if l == 'MAKE.TEM\n':
                 if self.model == 'CFD':
                     init[n] = 'MAKE.TEMCD\n'
                 elif self.model == 'LCF':
                     init[n] = 'MAKE.TEMLF\n'
+
+                # insert beam type
                 [init.insert(n+1, i) for i in ['BEAM_TYPE {}\n'.format(self.beam_type()), 'frame.in\n']]
 
+            # change thermal load
             elif l.startswith('   F  '):        # heating boundaries
                 if self.model == 'CFD':
                     init[n] = 'FLUX {}'.format('CFD'.join(l[4:].split('FISO')))
@@ -35,6 +47,7 @@ class Thermal:
                 # elif self.model == 'HSM':
                 #     init[n] = 'FLUX {}'.format('HSM'.join(l.split('FISO')[1:]))
 
+        # write changed file
         with open('{0}\{1}.gid\{1}.in'.format(getcwd(), self.chid), 'w') as file:
             file.writelines(init)
 
@@ -50,7 +63,7 @@ class Thermal:
 
     # copying fire and frame file to section catalogue
     def copy_ess(self):
-        copyfile('{0}.gid\{0}.in'.format('frame'), '{}\{}.gid\{}.in'.format(getcwd(), self.chid, 'frame'))
+        copyfile('{0}.gid\{0}.in'.format('frame'), '{}\{}.gid\{}.in'.format(self.path, self.chid, 'frame'))
 
         if self.model == 'CFD':
             copyfile('cfd.txt', '{}.gid\locafi.txt'.format(self.chid))
@@ -59,12 +72,11 @@ class Thermal:
 
     # adding torsion analysis results to first TEM file
     def insert_tor(self):
-        chdir('.\{}.gid'.format(self.chid))
+        chdir('{}\{}.gid'.format(self.path, self.chid))
         with open('{}-1.T0R'.format(self.chid)) as file:
             tor = file.readlines()
 
-        nfiber = int(tor[0].split(' ')[-1])
-
+        # nfiber = int(tor[0].split(' ')[-1])
 
         # picking TEM file to insert torsion results to
         if self.mode:
@@ -129,7 +141,10 @@ class Thermal:
         # natural fire
         else:
             self.copy_ess()
-            self.change_in()
+            try:
+                self.change_in()
+            except ValueError:
+                return -1
             run_safir(self.chid)
             self.insert_tor()
             print('\n{}-data {} thermal 2D analysis finished\n\n'.format(self.model, self.chid))
@@ -191,7 +206,7 @@ def run_safir(chid):
     chdir('..')
 
 
-def main(model, path=getcwd()):
+def main(model, type='s3dt2d', path=getcwd()):
     wd = getcwd()
     if path != wd:
         chdir(path)
@@ -206,11 +221,13 @@ def main(model, path=getcwd()):
     #     Thermal(prof, 'ISO').run()
 
     # Mechanical(folders).run()       # frame structural analysis - ISO curve
-    
-    for prof in folders:
-        Thermal(prof, model, mode='NF').run()   # natural fire mode
 
-    Mechanical(folders, mode='NF').run()        # frame structural analysis - natural fire
+    if model == 'LCF' and 't2d' in type:
+        for prof in folders:
+            Thermal(prof, model, mode='NF').run()   # natural fire mode
+
+    if model == 'LCF' and 's3d' in type:
+        Mechanical(folders, mode='NF').run()        # frame structural analysis - natural fire
 
     print('\nAll SAFIR calculations finished, well done engineer!\n\n')
 
@@ -219,5 +236,4 @@ def main(model, path=getcwd()):
 
 
 if __name__ == '__main__':
-
-    main(argv[1], argv[2])
+    main(*argv[1:])
