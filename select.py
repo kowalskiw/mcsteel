@@ -38,6 +38,7 @@ from shutil import copytree as copy
 import fdsafir
 import numpy as np
 from math import ceil
+from sys import argv
 
 '''open data, import to DataFrame'''
 # cwd has to be directory where results CSV is stored
@@ -164,8 +165,6 @@ class Prepare:
 
         return safir_data
 
-
-
     def gen_lcf(self, position, z_ceil, diam, hrr):
         # add data to LOCAFI.txt core
         lcf = core.copy()
@@ -208,8 +207,8 @@ class Prepare:
 '''run chosen scenarios in SAFIR'''
 
 
-def main():
-    Prepare().save_in_dir()
+def main(sim_number):
+    Prepare(sim_number=sim_number).save_in_dir()
     # copy general model files (already calculated for ISO curve) to every SAFIR simulation dir
     # run SAFIR simulation using general model and selected fire
     # return 0/1
@@ -227,4 +226,4 @@ def main():
             fdsafir.main('LCF', dir.path)
 
 
-main()
+main(argv[1])
