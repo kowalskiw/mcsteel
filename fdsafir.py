@@ -65,36 +65,58 @@ class Thermal:
 
         nfiber = int(tor[0].split(' ')[-1])
 
-        # looking for results regexp
-        while not tor.pop(0).startswith(' ==='):
-            pass
 
-        # picking first TEM file
-        for f in listdir(getcwd()):
-            if f.endswith('.tem') and f.startswith('b'):
-                first_b = f
-                break
+        # picking TEM file to insert torsion results to
+        if self.mode:
+            first_b = self.chid + '.tem'
+        else:
+            for f in listdir(getcwd()):
+                if f.endswith('.tem') and f.startswith('b'):
+                    first_b = f
+                    break
 
+        # check if torsion results already are in TEM file
         with open(first_b) as file:
             tem = file.readlines()
-        if '         w\n' in tem:       # check if torsion results already are in TEM file
+        if '         w\n' in tem:
             chdir('..')
+            print('Torsion results are already copied to the TEM')
             return 0
+
+        # looking for results regexp in the TOR
+        # try:
+        #     tor.pop(0).startswith(' ===')
+        # except SyntaxError():
+        #     print(SyntaxError("There is no torsion results in .T0R file: please check primary ISO analysis."))
+        #     pass
+
         # looking for start of torsion results regexp in TEM file
         try:
-            if self.model == 'CFD':
-                index = tem.index('       CFD\n')  # if model == CFD
-            elif self.model == 'LCF':
-                index = tem.index('    LOCAFI\n')  # if model == LCF
-            # elif self.model == 'HSM':
-            #     index = tem.index('       HSM\n')   # if model == HSM
+            tor_index = tor.index('         w\n')
         except ValueError:
-            index = tem.index('       HOT\n')
+            print(ValueError("Torsion results not found in the TOR"))
+            return -1
+
+        # find TEM line where torsion results should be passed
+        try:
+            if self.mode:
+                tem_index = tem.index('       HOT\n')   # if model == ISO
+            elif self.model == 'CFD':
+                tem_index = tem.index('       CFD\n')  # if model == CFD
+            elif self.model == 'LCF':
+                tem_index = tem.index('    LOCAFI\n')  # if model == LCF
+            # elif self.model == 'HSM':
+            #     tem_index = tem.tem_index('       HSM\n')   # if model == HSM
+        except ValueError:
+            print(ValueError("Flux constraint information not found in the TEM"))
+            return -1
 
         # pasting torsion results
         with open(first_b, 'w') as file:
-            file.writelines(tem[:index] + tor[:nfiber+4] + tem[index:])
+            file.writelines(tem[:tem_index] + tor[tor_index:-1] + tem[tem_index:])
         chdir('..')
+        print('Torsion results copied to the TEM')
+        return 0
 
     # running single SAFIR simulation
     def run(self):
@@ -102,7 +124,7 @@ class Thermal:
         if self.mode:
             run_safir(self.chid)
             self.insert_tor()
-            print('Primary {} thermal 2D analysis finished'.format(self.chid))
+            print('\nPrimary {} thermal 2D analysis finished\n\n'.format(self.chid))
 
         # natural fire
         else:
@@ -110,7 +132,7 @@ class Thermal:
             self.change_in()
             run_safir(self.chid)
             self.insert_tor()
-            print('{}-data {} thermal 2D analysis finished'.format(self.model, self.chid))
+            print('\n{}-data {} thermal 2D analysis finished\n\n'.format(self.model, self.chid))
 
 
 '''Safir_structural3D analyses'''
@@ -150,14 +172,14 @@ class Mechanical:
         if self.mode:
             self.copy_tems()
             run_safir('frame')
-            print('Primary structural 3D analysis finished')
+            print('\nPrimary structural 3D analysis finished\n\n')
 
         # natural fire
         else:
             self.change_in()
             self.copy_tems()
             run_safir('frame')
-            print('Natural fire structural 3D analysis finished')
+            print('\nNatural fire structural 3D analysis finished\n\n')
         
 
 # running SAFIR simulation in shell
@@ -180,17 +202,17 @@ def main(model, path=getcwd()):
             folders.remove(f)
     
     # these commented lines below are for ISO analysis, probably not necessary in common use
-    ### for prof in folders:
-    ###     Thermal(prof, model).run()
+    # for prof in folders:
+    #     Thermal(prof, 'ISO').run()
 
-    ### Mechanical(folders).run()       # frame structural analysis - ISO curve
+    # Mechanical(folders).run()       # frame structural analysis - ISO curve
     
     for prof in folders:
-       Thermal(prof, model, mode='NF').run()   # natural fire mode
+        Thermal(prof, model, mode='NF').run()   # natural fire mode
 
     Mechanical(folders, mode='NF').run()        # frame structural analysis - natural fire
 
-    print('All SAFIR calculations finished, well done engineer!')
+    print('\nAll SAFIR calculations finished, well done engineer!\n\n')
 
     if path != wd:
         chdir(wd)

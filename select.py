@@ -38,6 +38,7 @@ from shutil import copytree as copy
 import fdsafir
 import numpy as np
 from math import ceil
+from sys import argv
 
 '''open data, import to DataFrame'''
 # cwd has to be directory where results CSV is stored
@@ -141,6 +142,7 @@ class Prepare:
 
     # convert data [HRR(t) and D(t)] from OZone format (max 120 records) to SAFIR format (max 108 or 20 recs)
     def convert(self, ozn_time, ozn_data, records=20):
+
         safir_data = []
 
         # create default 20-records time list
@@ -205,8 +207,8 @@ class Prepare:
 '''run chosen scenarios in SAFIR'''
 
 
-def main():
-    Prepare().save_in_dir()
+def main(sim_number):
+    Prepare(sim_number=sim_number).save_in_dir()
     # copy general model files (already calculated for ISO curve) to every SAFIR simulation dir
     # run SAFIR simulation using general model and selected fire
     # return 0/1
@@ -220,7 +222,8 @@ def main():
             except FileExistsError:
                 print('SAFIR-GiD files have been already copied ({})'.format(dir.path))
             # run SAFIR simulation using general model and selected fire
+            # print('~python fdsafir.py~')
             fdsafir.main('LCF', dir.path)
 
 
-main()
+main(argv[1])
