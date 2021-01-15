@@ -55,7 +55,7 @@ from sys import argv
 # converting floated string list to numpy array
 def np_flt_tab(tab):
     for i in range(len(tab)):
-        tab[i] = float(tab[i][:-1])
+        tab[i] = float(tab[i])
     return np.array(tab)
 
 
@@ -103,11 +103,12 @@ class Prepare:
         # open PRI file for single sim
         with open('results\details\{}{}'.format(str(df_row['ID']), '.ozn')) as file:
             ozn = file.readlines()
-
+        print(str(df_row['ID']))
         fire_row = ozn.index('Localised\n')
 
         # import ozone time table [min] -> [s]
-        time_table = np_flt_tab(remove_n(ozn[fire_row + 9: fire_row + int(float(ozn[fire_row + 8][:-1])) * 2][::2]))*60
+        time_table = np_flt_tab(remove_n(ozn[fire_row + 9:
+                                             fire_row + 9 + int(float(ozn[fire_row + 8][:-1])) * 2][::2]))*60
 
         def check_boundaries(array2d, sim_time):
             if array2d[0] > 0:
@@ -118,11 +119,10 @@ class Prepare:
             return array2d
 
         time_checked = check_boundaries(time_table, float(ozn[ozn.index('Parameters\n')+6][:-1]))
-        print(ozn[ozn.index('Parameters\n')+6][:-1])
 
-        print(time_checked)
         # import HRR table [MW] -> [W] and convert to floats
-        hrr_float = np_flt_tab(ozn[fire_row + 9: fire_row + int(float(ozn[fire_row + 8][:-1])) * 2][1::2])*1e6
+        hrr_float = np_flt_tab(ozn[fire_row + 9: fire_row + 9 + int(float(ozn[fire_row + 8][:-1])) * 2][1::2])*1e6
+        np.append(hrr_float, hrr_float[-1])
 
         # calculate fire area [m] table
         max_diam = float(ozn[fire_row + 5][:-1])
@@ -140,25 +140,37 @@ class Prepare:
 
         return position, z_ceil, self.convert(time_checked, diam), self.convert(time_checked, hrr_float)
 
-    # convert data [HRR(t) and D(t)] from OZone format (max 120 records) to SAFIR format (max 108 or 20 recs)
-    def convert(self, ozn_time, ozn_data, records=20):
+    # convert data [HRR(t) and D(t)] from OZone format (max 120 records) to SAFIR format (max 99)
+    def convert(self, ozn_time, ozn_data, records=99):
 
         safir_data = []
 
         # create default 20-records time list
         step = ozn_time[-1] / (records - 1)
         converted_time = []
-        [converted_time.append(step * i) for i in range(records)]
+        [converted_time.append(round(step * i, 1)) for i in range(records)]
 
         # linear interpolation of values accordingly to converted time list
         inter_values = []
+        time_index = 0
         for t in converted_time:
             for i in range(len(ozn_time)):
-                if ozn_time[i] <= t:
-                    inter_values.append(linear_inter((ozn_time[i], ozn_data[i]), (ozn_time[i + 1], ozn_data[i + 1]), t))
-                    break
-                else:
-                    raise OverflowError('There is something wrong with interpolation module')
+                if ozn_time[i] <= t:        # look for the nearest point lower than 't'
+                    time_index = i
+
+            # calculate interpolated value
+            print(len(ozn_data))
+            print(len(ozn_time))
+            print(time_index)
+            if time_index < len(ozn_time) - 1:
+                inter_values.append(linear_inter((ozn_time[time_index], ozn_data[time_index]),
+                                                 (ozn_time[time_index + 1], ozn_data[time_index + 1]), t))
+            else:
+                inter_values.append(ozn_data[-1])
+                # else:
+                #     raise OverflowError('There is something wrong with interpolation module')
+
+        print(inter_values)
 
         # add interpolated values to converted time list
         [safir_data.append('    {}    {}\n'.format(converted_time[i], inter_values[i])) for i in range(records)]
@@ -223,7 +235,8 @@ def main(sim_number):
                 print('SAFIR-GiD files have been already copied ({})'.format(dir.path))
             # run SAFIR simulation using general model and selected fire
             # print('~python fdsafir.py~')
-            fdsafir.main('LCF', dir.path)
+
+            # fdsafir.main('LCF', dir.path)
 
 
-main(argv[1])
+main(int(argv[1]))

@@ -18,11 +18,6 @@ class Thermal:
         with open('{0}\{1}.gid\{1}.in'.format(getcwd(), self.chid)) as file:
             init = file.readlines()
 
-        # check if the profile is present in frame.in file
-        try:
-            test = init.index('{}.tem\n'.format(self.chid))
-        except ValueError:
-            ValueError('{} profile is not present in frame.in'.format(self.chid))
 
         # make changes
         for n in range(len(init)):
@@ -55,6 +50,12 @@ class Thermal:
     def beam_type(self):
         with open('{}\{}.gid\{}'.format(getcwd(), self.chid, 'frame.in')) as file:
             frame = file.readlines()
+
+        # check if the profile is present in frame.in file
+        try:
+            test = frame.index('{}.tem\n'.format(self.chid))
+        except ValueError:
+            raise ValueError('{} profile is not present in frame.in'.format(self.chid))
 
         while not frame.pop(0).startswith(' NODOFBEAM'):
             pass
@@ -106,8 +107,7 @@ class Thermal:
         try:
             tor_index = tor.index('         w\n')
         except ValueError:
-            print(ValueError("Torsion results not found in the TOR"))
-            return -1
+            raise ValueError("Torsion results not found in the TOR")
 
         # find TEM line where torsion results should be passed
         try:
@@ -120,8 +120,7 @@ class Thermal:
             # elif self.model == 'HSM':
             #     tem_index = tem.tem_index('       HSM\n')   # if model == HSM
         except ValueError:
-            print(ValueError("Flux constraint information not found in the TEM"))
-            return -1
+            raise ValueError("Flux constraint information not found in the TEM")
 
         # pasting torsion results
         with open(first_b, 'w') as file:
@@ -143,11 +142,11 @@ class Thermal:
             self.copy_ess()
             try:
                 self.change_in()
+                run_safir(self.chid)
+                self.insert_tor()
+                print('\n{}-data {} thermal 2D analysis finished\n\n'.format(self.model, self.chid))
             except ValueError:
-                return -1
-            run_safir(self.chid)
-            self.insert_tor()
-            print('\n{}-data {} thermal 2D analysis finished\n\n'.format(self.model, self.chid))
+                raise ValueError("change_in not possible")
 
 
 '''Safir_structural3D analyses'''
