@@ -18,7 +18,6 @@ class Thermal:
         with open('{0}\{1}.gid\{1}.in'.format(getcwd(), self.chid)) as file:
             init = file.readlines()
 
-
         # make changes
         for n in range(len(init)):
             l = init[n]
@@ -31,10 +30,10 @@ class Thermal:
                     init[n] = 'MAKE.TEMLF\n'
 
                 # insert beam type
-                [init.insert(n+1, i) for i in ['BEAM_TYPE {}\n'.format(self.beam_type()), 'frame.in\n']]
+                [init.insert(n + 1, i) for i in ['BEAM_TYPE {}\n'.format(self.beam_type()), 'frame.in\n']]
 
             # change thermal load
-            elif l.startswith('   F  '):        # heating boundaries
+            elif l.startswith('   F  '):  # heating boundaries
                 if self.model == 'CFD':
                     init[n] = 'FLUX {}'.format('CFD'.join(l[4:].split('FISO')))
                 elif self.model == 'LCF':
@@ -60,7 +59,7 @@ class Thermal:
         while not frame.pop(0).startswith(' NODOFBEAM'):
             pass
 
-        return round((frame.index('{}.tem\n'.format(self.chid))-1)/3) + 1
+        return round((frame.index('{}.tem\n'.format(self.chid)) - 1) / 3) + 1
 
     # copying fire and frame file to section catalogue
     def copy_ess(self):
@@ -96,13 +95,6 @@ class Thermal:
             print('Torsion results are already copied to the TEM')
             return 0
 
-        # looking for results regexp in the TOR
-        # try:
-        #     tor.pop(0).startswith(' ===')
-        # except SyntaxError():
-        #     print(SyntaxError("There is no torsion results in .T0R file: please check primary ISO analysis."))
-        #     pass
-
         # looking for start of torsion results regexp in TEM file
         try:
             tor_index = tor.index('         w\n')
@@ -112,7 +104,7 @@ class Thermal:
         # find TEM line where torsion results should be passed
         try:
             if self.mode:
-                tem_index = tem.index('       HOT\n')   # if model == ISO
+                tem_index = tem.index('       HOT\n')  # if model == ISO
             elif self.model == 'CFD':
                 tem_index = tem.index('       CFD\n')  # if model == CFD
             elif self.model == 'LCF':
@@ -162,10 +154,10 @@ class Mechanical:
         with open('frame.gid\{}.in'.format('frame')) as file:
             init = file.readlines()
 
-        for n in range(len(init)):      # sections TEM files
-            l = init[n]                 # line of frame.in file
+        for n in range(len(init)):  # sections TEM files
+            l = init[n]  # line of frame.in file
             if l.endswith('.tem\n'):
-                for f in listdir('{}.gid'.format(l[:-5])):      # iterate over files in section dir
+                for f in listdir('{}.gid'.format(l[:-5])):  # iterate over files in section dir
                     if f.endswith('.tem') and f.startswith('b'):
                         init[n] = '{}\n'.format(f)
                         break
@@ -194,7 +186,7 @@ class Mechanical:
             self.copy_tems()
             run_safir('frame')
             print('\nNatural fire structural 3D analysis finished\n\n')
-        
+
 
 # running SAFIR simulation in shell
 def run_safir(chid):
@@ -214,7 +206,7 @@ def main(model, type='s3dt2d', path=getcwd()):
     for f in reversed(folders):
         if not f.endswith('.gid'):
             folders.remove(f)
-    
+
     # these commented lines below are for ISO analysis, probably not necessary in common use
     # for prof in folders:
     #     Thermal(prof, 'ISO').run()
@@ -223,10 +215,10 @@ def main(model, type='s3dt2d', path=getcwd()):
 
     if model == 'LCF' and 't2d' in type:
         for prof in folders:
-            Thermal(prof, model, mode='NF').run()   # natural fire mode
+            Thermal(prof, model, mode='NF').run()  # natural fire mode
 
     if model == 'LCF' and 's3d' in type:
-        Mechanical(folders, mode='NF').run()        # frame structural analysis - natural fire
+        Mechanical(folders, mode='NF').run()  # frame structural analysis - natural fire
 
     print('\nAll SAFIR calculations finished, well done engineer!\n\n')
 
