@@ -7,15 +7,27 @@ from sys import argv
 
 
 class Thermal:
-    def __init__(self, chid, model, mode='ISO'):
+    def __init__(self, chid, model, frame_chid='default', profile_pth='default'):
         self.chid = chid[:-4]
-        self.mode = mode.startswith('ISO')
+        self.mode = model.startswith('ISO')
         self.model = model
         self.path = getcwd()
 
+        if frame_chid == 'default':
+            self.frame = 'frame'
+        else:
+            self.frame = frame_chid
+
+        if profile_pth == 'default':
+            self.profile_pth = '{0}\{1}.gid\{1}.in'.format(getcwd(), self.chid)
+            self.alias = self.chid
+        else:
+            self.profile_pth = profile_pth
+            self.alias = 'safir'
+
     # changing input file form iso curve to natural fire mode
     def change_in(self):
-        with open('{0}\{1}.gid\{1}.in'.format(getcwd(), self.chid)) as file:
+        with open(self.profile_pth) as file:
             init = file.readlines()
 
         # make changes
@@ -30,7 +42,8 @@ class Thermal:
                     init[n] = 'MAKE.TEMLF\n'
 
                 # insert beam type
-                [init.insert(n + 1, i) for i in ['BEAM_TYPE {}\n'.format(self.beam_type()), 'frame.in\n']]
+                [init.insert(n + 1, i) for i in ['BEAM_TYPE {}\n'.format(self.beam_type()),
+                                                 '{}.in\n'.format(self.frame)]]
 
             # change thermal load
             elif l.startswith('   F  '):  # heating boundaries
@@ -42,24 +55,24 @@ class Thermal:
                 #     init[n] = 'FLUX {}'.format('HSM'.join(l.split('FISO')[1:]))
 
         # write changed file
-        with open('{0}\{1}.gid\{1}.in'.format(getcwd(), self.chid), 'w') as file:
+        with open(self.profile_pth, 'w') as file:
             file.writelines(init)
 
     # searching information about number of element
     def beam_type(self):
-        with open('{}\{}.gid\{}'.format(getcwd(), self.chid, 'frame.in')) as file:
+        with open('{}.in'.format(self.frame)) as file:
             frame = file.readlines()
 
         # check if the profile is present in frame.in file
         try:
-            test = frame.index('{}.tem\n'.format(self.chid))
+            frame.index('{}.tem\n'.format(self.alias))
         except ValueError:
-            raise ValueError('{} profile is not present in frame.in'.format(self.chid))
+            raise ValueError('{} profile is not present in frame.in'.format(self.alias))
 
         while not frame.pop(0).startswith(' NODOFBEAM'):
             pass
 
-        return round((frame.index('{}.tem\n'.format(self.chid)) - 1) / 3) + 1
+        return round((frame.index('{}.tem\n'.format(self.alias)) - 1) / 3) + 1
 
     # copying fire and frame file to section catalogue
     def copy_ess(self):

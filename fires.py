@@ -133,7 +133,7 @@ class Properties:
 
     # t-squared fire
     def alfa_t2(self, name, property=None):
-        config, f_coordinates = f_localization(name)
+        config = f_localization(name)[0]
 
         # calculate HRRPUA according to triangular distribution specified by user
         hrrpua = triangular(config.hrrpua_min, config.hrrpua_max, mode=config.hrrpua_mode) * 1000     # kW/m2
@@ -146,22 +146,22 @@ class Properties:
 
         hrr_tab = []
         diam_tab = []
-        for i in range(0, 100):
-            t = int(self.t_end * i/99)
+        for i in range(0, 99):
+            t = int(self.t_end * i/98)
 
             # calculate HRR, append
-            hrr_tab.extend([t, round(alpha * (t ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
-            if hrr_tab[-1] > self.hrr_max:    # check if hrr_tab does not exceed model limitation
-                hrr_tab[-1] = self.hrr_max
+            hrr_tab.append([t, round(alpha * (t ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
+            if hrr_tab[-1][-1] > self.hrr_max:    # check if hrr_tab does not exceed model limitation
+                hrr_tab[-1][-1] = self.hrr_max
 
             # calculate diameter, append
-            diam_tab.extend([t, 2 * (hrr_tab[-1] / hrrpua/pi)**0.5])  # [time /s/, diameter /m/]
+            diam_tab.append([t, 2 * (hrr_tab[-1][-1] / (hrrpua*1000*pi))**0.5])  # [time /s/, diameter /m/]
 
-        return hrr_tab, diam_tab, f_coordinates, hrrpua, alpha
+        return hrr_tab, diam_tab, hrrpua, alpha
 
     # curve taking non-effective sprinklers into account
     def sprink_noeff(self, name, property=None):
-        config, f_coordinates = f_localization(name)
+        config = f_localization(name)[0]
 
         # calculate HRRPUA according to triangular distribution specified by user
         hrrpua = triangular(config.hrrpua_min, config.hrrpua_max, mode=config.hrrpua_mode) * 1000  # [kW]
@@ -174,26 +174,26 @@ class Properties:
 
         hrr_tab = []
         diam_tab = []
-        for i in range(0, 100):
-            t = int(self.t_end * i/99)
+        for i in range(0, 99):
+            t = int(self.t_end * i/98)
 
             # calculate HRR (steady-state after sprinklers activation), append
             if t < config.t_sprink:
-                hrr_tab.extend([t, round(alpha * (t ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
+                hrr_tab.append([t, round(alpha * (t ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
             else:
-                hrr_tab.extend([t, round(alpha * (config.t_sprink ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
+                hrr_tab.append([t, round(alpha * (config.t_sprink ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
 
-            if hrr_tab[-1] > self.hrr_max:  # check if hrr_tab does not exceed model limitation
-                hrr_tab[-1] = self.hrr_max
+            if hrr_tab[-1][-1] > self.hrr_max:  # check if hrr_tab does not exceed model limitation
+                hrr_tab[-1][-1] = self.hrr_max
 
             # calculate diameter, append
-            diam_tab.extend([t, 2 * (hrr_tab[-1] / hrrpua/pi)**0.5])  # [time /s/, diameter /m/]
+            diam_tab.append([t, 2 * (hrr_tab[-1][-1] / (hrrpua*1000*pi))**0.5])  # [time /s/, diameter /m/]
 
-        return hrr_tab, diam_tab, f_coordinates, hrrpua, alpha
+        return hrr_tab, diam_tab, hrrpua, alpha
 
     # curve taking effective sprinklers into account
     def sprink_eff(self, name, property=None):
-        config, f_coordinates = f_localization(name)
+        config = f_localization(name)[0]
 
         # calculate HRRPUA according to triangular distribution specified by user
         hrrpua = triangular(config.hrrpua_min, config.hrrpua_max, mode=config.hrrpua_mode) * 1000  # [kW]
@@ -208,24 +208,24 @@ class Properties:
         diam_tab = []
         q_0 = alpha * config.t_sprink ** 2 * 1000  # [W]
         q_limit = round(0.15 * q_0)
-        for i in range(0, 100):
-            t = int(self.t_end * i/99)
+        for i in range(0, 99):
+            t = int(self.t_end * i/98)
 
             # calculate HRR (extinguishing phase after sprinklers activation), append
             if t < config.t_sprink:
-                hrr_tab.extend([t, round(alpha * (t ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
+                hrr_tab.append([t, round(alpha * (t ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
             else:
                 q = round(q_0 * exp(-0.0024339414 * (t - config.t_sprink)), 4)  # W
                 if q >= q_limit:
-                    hrr_tab.extend([t, q])  # [time /s/, HRR /W/]
-                    hrr_tab.extend([round(i, 4) for i in [t / 60, q]])
+                    hrr_tab.append([t, q])  # [time /s/, HRR /W/]
+                    hrr_tab.append([round(i, 4) for i in [t / 60, q]])
                 else:
-                    hrr_tab.extend([round(i, 4) for i in [t / 60, q_limit]])
+                    hrr_tab.append([round(i, 4) for i in [t / 60, q_limit]])
 
-            if hrr_tab[-1] > self.hrr_max:  # check if hrr_tab does not exceed model limitation
-                hrr_tab[-1] = self.hrr_max
+            if hrr_tab[-1][-1] > self.hrr_max:  # check if hrr_tab does not exceed model limitation
+                hrr_tab[-1][-1] = self.hrr_max
 
             # calculate diameter, append
-            diam_tab.extend([t, 2 * (hrr_tab[-1] / hrrpua/pi)**0.5])  # [time /s/, diameter /m/]
+            diam_tab.append([t, 2 * (hrr_tab[-1][-1] / (hrrpua*1000*pi))**0.5])  # [time /s/, diameter /m/]
 
-        return hrr_tab, diam_tab, f_coordinates, hrrpua, alpha
+        return hrr_tab, diam_tab, hrrpua, alpha
