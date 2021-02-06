@@ -6,19 +6,20 @@ import shapely.geometry as sh
 from pandas import DataFrame as df
 from pandas import read_csv as rcsv
 import core
-from os import mkdir, chdir, getcwd
+from os import mkdir, chdir
 from shutil import copyfile
 from fdsafir import Thermal
-
+from multi import user_config
+from sys import argv
 
 '''Read geometry and map it to the fire (choose the most exposed sections)'''
 
 
 class Single:
-    def __init__(self, title, element_type='b'):
+    def __init__(self, title, t_end, fire_type, element_type='b'):
         self.title = title     # simulation title
-        self.f_type = 'alfat2_store'    # type of fire
-        self.t_end = 1800      # simulation duration time
+        self.f_type = fire_type    # type of fire
+        self.t_end = t_end      # simulation duration time
         self.element_type = element_type  # 'b' - beam, 'c' - column
         self.prof_type = 'invalid profile type'     # type of steel profile
         self.fire_properties = f_localization(title)[1]
@@ -142,11 +143,10 @@ class Single:
 
 
 class Generator:
-    def __init__(self):
-        self.t_end = 1800      # simulation duration time
-        self.title = 'foo'     # simulation title
-        self.f_type = 'alfat2_store'    # type of fire
-        pass
+    def __init__(self, t_end, title, fire_type):
+        self.t_end = t_end      # simulation duration time
+        self.title = title     # simulation title
+        self.f_type = fire_type    # type of fire
 
 # import fire properties
     def fire(self):
@@ -189,7 +189,6 @@ class Generator:
         add(lcf.index('DIAMETER\n') + 2, diam_tab)
         add(lcf.index('RHR\n') + 2, hrr_tab)
 
-
         # save locafi.txt to the dir
         with open('locafi.txt', 'w+') as file:
             file.writelines(lcf)
@@ -198,7 +197,8 @@ class Generator:
 class MultiT2D:
     def __init__(self):
         # directory == 'simulation/multit2d/chid'
-        self.title = 'foo'
+        # self.title = title
+        pass
 
     def dummy(self, chid, section, unit_v):
 
@@ -231,7 +231,7 @@ class MultiT2D:
             file.writelines(lines)
 
     def profile(self, chid, profile_type):
-        copyfile('../{0}.gid/{0}.in'.format(profile_type), '{}.in'.format(profile_type))
+        copyfile('{1}/{0}.gid/{0}.in'.format(profile_type, config['config_path']), '{}.in'.format(profile_type))
 
         # change profile to LCF and set chid.in as S3D
         Thermal(chid, 'LCF', frame_chid=chid, profile_pth='{}.in'.format(profile_type)).change_in()
@@ -240,56 +240,67 @@ class MultiT2D:
     def prepare(self, data_row):
         # create dummy.in (for one element S3D - just to map fire to element in SAFIR)
         unit_vector = np.array([data_row['u_x'], data_row['u_y'], data_row['u_z']])
-        # try:
         self.dummy(str(data_row['ID']), (data_row['x_s'], data_row['y_s'], data_row['z_s']), unit_vector)
-        # except IndexError:
-        #     print('list error')
-        #     pass
 
         # copy profile GiD directory and prepare T2D files
         self.profile(str(data_row['ID']), str(data_row['profile']))
 
 
 # generates a set of n scenarios
-def generate_set(n, title):
+def generate_set(n, title, t_end, fire_type, config_path, results_path):
     csvset = df(columns=('ID', 'element_type', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s', 'distance', 'ceiling_lvl',
                          'profile', 'u_x', 'u_y', 'u_z'))
     simid_core = int(current_seconds())
 
-    for i in range(0, n*2, 2):  # add MC-drawn records to the DataFrame
-        sing = Single(title)
+    for i in range(0, int(n)*2, 2):  # add MC-drawn records to the DataFrame
+        sing = Single(title, t_end, fire_type)
         csvset.loc[i] = [simid_core+i, 'b'] + sing.generate()
         csvset.loc[i+1] = [simid_core+i+1, 'c'] + sing.generate(element_type='c')
 
-    csvset.to_csv('{}_set.csv'.format(title))    # save to the csv file
+    csvset.to_csv('{}\{}_set.csv'.format(results_path, title))    # save to the csv file
 
     # generate locafi.txt file
     for i, row in csvset.iterrows():
-        gen = Generator()
+        chdir(config['config_path'])
+        gen = Generator(t_end, title, fire_type)
         fire = gen.fire()
         chid = str(row['ID'])
 
         # create simulation directory
         try:
-            mkdir(chid)
+            mkdir('{}\{}'.format(results_path, chid))
         except FileExistsError:
             print('directory already exists')
-        chdir(chid)
+        chdir('{}\{}'.format(results_path, chid))
 
         # create locafi.txt fire file
         gen.locafitxt((row['x_f'], row['y_f'], row['z_f']), *fire, row['ceiling_lvl'])
 
+
+    return 0
+
+
+# generate files for multisimulation
+def generate_sim(data_path):
+    chdir(config['results_path'])
+    data_set = rcsv(data_path)
+    for i, r in data_set.iterrows():
+        chdir(str(r['ID']))
+        MultiT2D().prepare(r)
         chdir('..')
 
     return 0
 
 
-generate_set(10, 'foo')
+if __name__ == '__main__':
+    config = user_config(argv[1])   # import multisimulation config
+    try:
+        mkdir(config['results_path'])   # create results directory
+    except FileExistsError:
+        pass
 
-data_set = rcsv('foo_set.csv')
-for i, r in data_set.iterrows():
-    chdir(str(r['ID']))
-    print(getcwd())
-    MultiT2D().prepare(r)
-    chdir('..')
+    chdir(config['config_path'])    # change to config
 
+    generate_set(config['max_iterations'], config['case_title'], config['time_end'], config['fire_type'],
+                 config['config_path'], config['results_path'])
+    generate_sim('{}\{}_set.csv'.format(config['results_path'], config['case_title']))

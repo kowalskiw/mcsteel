@@ -202,12 +202,17 @@ class Mechanical:
 
 
 # running SAFIR simulation in shell
-def run_safir(chid):
+def run_safir(chid, mcsteel=False):
     safir_path = 'C:\SAFIR\safir.exe'
-    chdir('.\{}.gid'.format(chid))
 
-    subprocess.call(' '.join([safir_path, chid, ]), shell=True)
-    chdir('..')
+    if mcsteel:
+        chid = chid.split('.')[0]
+    else:
+        chdir('.\{}.gid'.format(chid))
+
+    subprocess.call(' '.join([safir_path, '"{}"'.format(chid)]), shell=True)
+
+    if not mcsteel: chdir('..')
 
 
 def main(model, type='s3dt2d', path=getcwd()):

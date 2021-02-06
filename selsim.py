@@ -239,4 +239,5 @@ def main(sim_number):
             # fdsafir.main('LCF', dir.path)
 
 
-main(int(argv[1]))
+if __name__ == '__main__':
+    main(int(argv[1]))
