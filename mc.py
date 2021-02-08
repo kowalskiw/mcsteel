@@ -248,14 +248,28 @@ class MultiT2D:
 
 # generates a set of n scenarios
 def generate_set(n, title, t_end, fire_type, config_path, results_path):
-    csvset = df(columns=('ID', 'element_type', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s', 'distance', 'ceiling_lvl',
-                         'profile', 'u_x', 'u_y', 'u_z'))
+    def open_set(path):
+        try:
+            csv = rcsv(path)
+            del csv['Unnamed: 0']   # remove extra IDs column
+        except FileNotFoundError:
+            csv = df(columns=('ID', 'element_type', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s', 'distance',
+                                 'ceiling_lvl', 'profile', 'u_x', 'u_y', 'u_z'))
+            csv.to_csv(path)
+
+        return csv
+
+    csvset = open_set('{}\{}_set.csv'.format(results_path, title))
     simid_core = int(current_seconds())
 
     for i in range(0, int(n)*2, 2):  # add MC-drawn records to the DataFrame
         sing = Single(title, t_end, fire_type)
         csvset.loc[i] = [simid_core+i, 'b'] + sing.generate()
         csvset.loc[i+1] = [simid_core+i+1, 'c'] + sing.generate(element_type='c')
+
+        if i % 20 == 0:
+            csvset.to_csv('{}\{}_set.csv'.format(results_path, title))  # save to the csv file
+            csvset = open_set('{}\{}_set.csv'.format(results_path, title))
 
     csvset.to_csv('{}\{}_set.csv'.format(results_path, title))    # save to the csv file
 
@@ -275,7 +289,6 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
 
         # create locafi.txt fire file
         gen.locafitxt((row['x_f'], row['y_f'], row['z_f']), *fire, row['ceiling_lvl'])
-
 
     return 0
 

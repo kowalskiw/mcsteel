@@ -29,8 +29,11 @@ class RunSim:
     # run SAFIR T2D
     def t2d(self, chid):
         dir_content = listdir()
-        [dir_content.remove(i) for i in ['{}.in'.format(chid), 'locafi.txt']]
-        run_safir(dir_content[0], mcsteel=True)
+        for i in dir_content:
+            if (not i.endswith('.in')) or i == '{}.in'.format(chid):
+                continue
+            run_safir(i, mcsteel=True)
+            break
 
     # calculate mean temperature of the profile return mean temp - time table
     def mean_temp(self):
@@ -87,7 +90,7 @@ class Queue:
             self.results_df = read_csv('{}_results.csv'.format(self.user['case_title']))
             del self.results_df['Unnamed: 0']   # error in importing via rcsv
         except (FileNotFoundError, EmptyDataError):
-            self.results_df = DataFrame(columns=['ID', 'temp_max', 'time_crit'])
+            self.results_df = DataFrame(columns=['ID', 'temp_max', 'time_crit', 'compared'])
         self.rs = RunSim
 
     # run simulation queue
@@ -95,17 +98,19 @@ class Queue:
         results = {}
         for index, row in self.set.iterrows():
             chid = str(row['ID'])
-            if int(chid) in self.results_df.ID.tolist():
-                continue  # check if queue element is in results DF
+            # check if queue element is in results DF
+            if (int(chid) in self.results_df.ID.tolist()) or (int(chid) in self.results_df.compared.tolist()):
+                continue
 
             # run simulation and add section temperature curve to the list
             chdir(chid)
+            print('Started {} calculations'.format(chid))
             self.rs().t2d(chid)
             results[chid] = self.rs().mean_temp()
             chdir('..')
 
-            # save results every 4 sim
-            if index % 4 == 0:
+            # save results every 20 sim
+            if index % 4 != 0:
                 self.save_res(results, export.temp_crit(self.user['miu']))
 
         self.save_res(results, export.temp_crit(self.user['miu']))
@@ -117,26 +122,53 @@ class Queue:
             with open(path_to_res, 'w+'):
                 print('{} created'.format(path_to_res))
 
+        compared = []
+        start = int(list(tables.keys())[0])
         for k, v in tables.items():
             temp_max = 0
-            upper_index = 0
+            upper_index = None
 
             for step in v:
                 if step[1] > temp_max: temp_max = step[1]       # find max temperature
-                if step[1] > t_crit: upper_index = np.where(v == step)    # find point, where theta_crit were exceeded
+                if step[1] > t_crit and not upper_index:  # find point, where theta_crit were exceeded
+                    upper_index = np.where(v == step)[0][0]
 
             # try to interpolate
             try:
-                time_crit = linear_inter(v[upper_index - 1], v[upper_index], t_crit)
+                pt1 = list(v[upper_index - 1])
+                pt2 = list(v[upper_index])
+                [i.reverse() for i in [pt1, pt2]]
+                time_crit = linear_inter(pt1, pt2, t_crit)
             except TypeError:
                 time_crit = 0
 
-            self.results_df.loc[int(k)] = [str(k), temp_max, time_crit]
+            compared.append([str(k), temp_max, time_crit])
+
+            # compare beam with column scenario
+            if (int(k) - start) % 2 == 1:
+                # smaller time_crit except 0
+                if compared[0][2] + compared[1][2] > 0 and compared[0][2] < compared[1][2]:
+                    comp_id = compared.pop(0)[0]
+                    print('usunieta belka')
+
+                elif compared[0][1] > compared[1][1]:   # bigger temp_max
+                    comp_id = compared.pop(0)[0]
+                    print('usunieta belka')
+
+                else:
+                    comp_id = compared.pop(1)[0]
+                    print('usunieta kolumna')
+
+                self.results_df.loc[len(self.results_df)] = compared[0] + [comp_id]   # save results to the Data Frame
+                compared = []
 
         self.results_df.to_csv(path_to_res)
 
         # export results to txt summary file
         export.summary(self.results_df, export.temp_crit(self.user['miu']), self.user['RSET'])
+
+        # clear Data Frame
+        self.results_df = self.results_df.iloc[0:0]
 
 
 '''Run multisimulation on cluster'''
