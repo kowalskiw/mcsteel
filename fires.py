@@ -218,9 +218,8 @@ class Properties:
                 q = round(q_0 * exp(-0.0024339414 * (t - config.t_sprink)), 4)  # W
                 if q >= q_limit:
                     hrr_tab.append([t, q])  # [time /s/, HRR /W/]
-                    hrr_tab.append([round(i, 4) for i in [t / 60, q]])
                 else:
-                    hrr_tab.append([round(i, 4) for i in [t / 60, q_limit]])
+                    hrr_tab.append([t, q_limit])
 
             if hrr_tab[-1][-1] > self.hrr_max:  # check if hrr_tab does not exceed model limitation
                 hrr_tab[-1][-1] = self.hrr_max
