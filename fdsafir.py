@@ -233,7 +233,7 @@ def main(model, type='s3dt2d', path=getcwd()):
 
     if model == 'LCF' and 't2d' in type:
         for prof in folders:
-            Thermal(prof, model, mode='NF').run()  # natural fire mode
+            Thermal(prof, model).run()  # natural fire mode
 
     if model == 'LCF' and 's3d' in type:
         Mechanical(folders, mode='NF').run()  # frame structural analysis - natural fire

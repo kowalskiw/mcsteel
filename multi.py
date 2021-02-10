@@ -88,7 +88,10 @@ class Queue:
         self.set = read_csv('{}_set.csv'.format(self.user['case_title']))       # import queue
         try:
             self.results_df = read_csv('{}_results.csv'.format(self.user['case_title']))
-            del self.results_df['Unnamed: 0']   # error in importing via rcsv
+            try:
+                del self.results_df['Unnamed: 0']  # error in importing via rcsv
+            except:
+                print('nie usunieto unnamed')
         except (FileNotFoundError, EmptyDataError):
             self.results_df = DataFrame(columns=['ID', 'temp_max', 'time_crit', 'compared'])
         self.rs = RunSim
@@ -167,8 +170,8 @@ class Queue:
         # export results to txt summary file
         export.summary(self.results_df, export.temp_crit(self.user['miu']), self.user['RSET'])
 
-        # clear Data Frame
-        self.results_df = self.results_df.iloc[0:0]
+        # # clear Data Frame
+        # self.results_df = self.results_df.iloc[0:0]
 
 
 '''Run multisimulation on cluster'''

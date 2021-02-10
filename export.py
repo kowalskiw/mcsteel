@@ -1,5 +1,7 @@
 from chart import Charting
 from math import log
+from pandas import read_csv as rcsv
+from sys import argv
 
 
 '''Save output as summary results.txt and csv database. Run chart.Charting().'''
@@ -63,3 +65,21 @@ def summary(data, t_crit, rset):
         return True
     else:
         return False
+
+def user_config(user_file):
+    user = {}
+    with open(user_file) as file:
+        for line in file.readlines():
+            splited = line.split()
+            try:
+                value = float(splited[-1])
+            except ValueError:
+                value = splited[-1]
+            user[splited[0]] = value
+    return user
+
+
+if __name__ == '__main__':
+    user = user_config(argv[1])
+    summary(rcsv('{}\\{}_results.csv'.format(user['results_path'], user['case_title'])), temp_crit(user['miu']),
+            user['RSET'])

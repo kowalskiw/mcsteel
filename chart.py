@@ -1,9 +1,5 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
-from pandas import read_csv as rcsv
-from os import chdir
-import pandas as pd
-import numpy as np
 
 
 class Charting:
