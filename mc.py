@@ -1,4 +1,5 @@
 from time import time as current_seconds
+from time import ctime
 import numpy as np
 from fires import f_localization, Properties
 import ezdxf
@@ -170,7 +171,7 @@ class Generator:
 
         print('alpha={}\nHRRPUA={}'.format(alpha, hrrpua))
 
-        return f_hrr, f_diam
+        return f_hrr, f_diam, hrrpua, alpha
 
     def locafitxt(self, position, hrr_tab, diam_tab, z_ceil):
         # add data to LOCAFI.txt core
@@ -203,7 +204,9 @@ class MultiT2D:
     def dummy(self, chid, section, unit_v):
 
         # calculate nodes position
-        np_section = np.array(section)
+        np_section = np.array(section).astype(float)
+        print(type(unit_v[0]))
+        print(type(unit_v[0]))
         node1 = np_section - (unit_v / 1000)
         node2 = np_section + (unit_v / 1000)
         center = np_section
@@ -239,7 +242,7 @@ class MultiT2D:
     # generate initial files (elem.in, prof.in, locafi.txt) based on DataFrame row (title_set.csv)
     def prepare(self, data_row):
         # create dummy.in (for one element S3D - just to map fire to element in SAFIR)
-        unit_vector = np.array([data_row['u_x'], data_row['u_y'], data_row['u_z']])
+        unit_vector = np.array([data_row['u_x'], data_row['u_y'], data_row['u_z']]).astype(float)
         self.dummy(str(data_row['ID']), (data_row['x_s'], data_row['y_s'], data_row['z_s']), unit_vector)
 
         # copy profile GiD directory and prepare T2D files
@@ -248,47 +251,56 @@ class MultiT2D:
 
 # generates a set of n scenarios
 def generate_set(n, title, t_end, fire_type, config_path, results_path):
-    def open_set(path):
-        try:
-            csv = rcsv(path)
-            del csv['Unnamed: 0']   # remove extra IDs column
-        except FileNotFoundError:
-            csv = df(columns=('ID', 'element_type', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s', 'distance',
-                                 'ceiling_lvl', 'profile', 'u_x', 'u_y', 'u_z'))
-            csv.to_csv(path)
+    def create_df():
+        return df(columns=('ID', 'time', 'element_type', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s', 'distance',
+                           'ceiling_lvl', 'profile', 'u_x', 'u_y', 'u_z', 'HRRPUA', 'alpha'))
 
-        return csv
-
-    csvset = open_set('{}\{}_set.csv'.format(results_path, title))
-    simid_core = int(current_seconds())
-
-    for i in range(0, int(n)*2, 2):  # add MC-drawn records to the DataFrame
-        sing = Single(title, t_end, fire_type)
-        csvset.loc[i] = [simid_core+i, 'b'] + sing.generate()
-        csvset.loc[i+1] = [simid_core+i+1, 'c'] + sing.generate(element_type='c')
-
-        if i % 20 == 0:
-            csvset.to_csv('{}\{}_set.csv'.format(results_path, title))  # save to the csv file
-            csvset = open_set('{}\{}_set.csv'.format(results_path, title))
-
-    csvset.to_csv('{}\{}_set.csv'.format(results_path, title))    # save to the csv file
-
-    # generate locafi.txt file
-    for i, row in csvset.iterrows():
-        chdir(config['config_path'])
-        gen = Generator(t_end, title, fire_type)
-        fire = gen.fire()
-        chid = str(row['ID'])
+    def locafi(row, fire):
+        chdir(config_path)
 
         # create simulation directory
         try:
-            mkdir('{}\{}'.format(results_path, chid))
+            mkdir('{}\{}'.format(results_path, str(row['ID'])))
         except FileExistsError:
             print('directory already exists')
-        chdir('{}\{}'.format(results_path, chid))
+        chdir('{}\{}'.format(results_path, str(row['ID'])))
 
         # create locafi.txt fire file
         gen.locafitxt((row['x_f'], row['y_f'], row['z_f']), *fire, row['ceiling_lvl'])
+
+        chdir(config_path)
+
+    csvset = create_df()
+    csvset.to_csv('{}\{}_set.csv'.format(results_path, title))
+    simid_core = int(current_seconds())
+
+    # draw MC input samples
+    for i in range(0, int(n)*2, 2):
+        sing = Single(title, t_end, fire_type)
+        gen = Generator(t_end, title, fire_type)
+
+        fire = list(gen.fire())   # draw fire
+
+        # draw localization of the most exposed beam
+        csvset.loc[i] = [simid_core+i, 'b', ctime(current_seconds())] + sing.generate() + fire[2:]
+        locafi(csvset.loc[i], fire[:2])     # generate locafi.txt
+
+        # draw localization of the most exposed column
+        csvset.loc[i+1] = [simid_core+i+1, 'c', ctime(current_seconds())] + sing.generate(element_type='c') + fire[2:]
+        locafi(csvset.loc[i + 1], fire[:2])    # generate locafi.txt
+
+        # write rows every 20 simulations
+        if i % 8 == 0:
+            csvset.to_csv('{}\{}_set.csv'.format(results_path, title), mode='a', header=False)    # append to the csv file
+            del csvset
+            csvset = create_df()
+
+    # write unwritten rows
+    try:
+        csvset.to_csv('{}\{}_set.csv'.format(results_path, title), mode='a', header=False)    # append to the csv file
+        del csvset
+    except ValueError:
+        pass
 
     return 0
 

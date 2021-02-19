@@ -113,7 +113,7 @@ class Queue:
             chdir('..')
 
             # save results every 20 sim
-            if index % 4 != 0:
+            if index % 20 != 0:
                 self.save_res(results, export.temp_crit(self.user['miu']))
 
         self.save_res(results, export.temp_crit(self.user['miu']))
