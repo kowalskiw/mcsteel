@@ -202,8 +202,8 @@ class Mechanical:
 
 
 # running SAFIR simulation in shell
-def run_safir(chid, mcsteel=False):
-    safir_path = 'C:\SAFIR\safir.exe'
+def run_safir(chid, safir='C:\SAFIR', mcsteel=False):
+    safir_path = '{}\safir.exe'.format(safir)
 
     if mcsteel:
         chid = chid.split('.')[0]

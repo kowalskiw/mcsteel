@@ -27,12 +27,12 @@ def user_config(user_file):
 
 class RunSim:
     # run SAFIR T2D
-    def t2d(self, chid):
+    def t2d(self, chid, safir_dir_path):
         dir_content = listdir()
         for i in dir_content:
             if (not i.endswith('.in')) or i == '{}.in'.format(chid):
                 continue
-            run_safir(i, mcsteel=True)
+            run_safir(i, safir=safir_dir_path, mcsteel=True)
             break
 
     # calculate mean temperature of the profile return mean temp - time table
@@ -108,7 +108,7 @@ class Queue:
             # run simulation and add section temperature curve to the list
             chdir(chid)
             print('Started {} calculations'.format(chid))
-            self.rs().t2d(chid)
+            self.rs().t2d(chid, self.user['safir_path'])
             results[chid] = self.rs().mean_temp()
             chdir('..')
 

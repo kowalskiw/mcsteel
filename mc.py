@@ -40,7 +40,7 @@ class Single:
         columns = []
         beams = []
         for l in msp.query('LINE'):     # assign LINES elements to columns or beams tables
-            if l.dxf.start[:-1] == l.dxf.end[:-1]:
+            if l.dxf.start[0] == l.dxf.end[0] and l.dxf.start[1] == l.dxf.end[1]:
                 columns.append(l)
             else:
                 beams.append(l)
