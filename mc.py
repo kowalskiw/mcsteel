@@ -205,8 +205,6 @@ class MultiT2D:
 
         # calculate nodes position
         np_section = np.array(section).astype(float)
-        print(type(unit_v[0]))
-        print(type(unit_v[0]))
         node1 = np_section - (unit_v / 1000)
         node2 = np_section + (unit_v / 1000)
         center = np_section
@@ -255,6 +253,17 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
         return df(columns=('ID', 'time', 'element_type', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s', 'distance',
                            'ceiling_lvl', 'profile', 'u_x', 'u_y', 'u_z', 'HRRPUA', 'alpha'))
 
+    # append DataFrame to CSV file
+    def df2csv(df, path='{}\{}_set.csv'.format(results_path, title)):
+        try:
+            with open(path):
+                header = False
+        except FileNotFoundError:
+            header = True
+
+        df.to_csv(path, mode='a', header=header)
+
+    # create locafi.txt file
     def locafi(row, fire):
         chdir(config_path)
 
@@ -271,7 +280,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
         chdir(config_path)
 
     csvset = create_df()
-    csvset.to_csv('{}\{}_set.csv'.format(results_path, title))
+    df2csv(csvset)
     simid_core = int(current_seconds())
 
     # draw MC input samples
@@ -291,13 +300,13 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
 
         # write rows every 20 simulations
         if i % 8 == 0:
-            csvset.to_csv('{}\{}_set.csv'.format(results_path, title), mode='a', header=False)    # append to the csv file
+            df2csv(csvset)
             del csvset
             csvset = create_df()
 
     # write unwritten rows
     try:
-        csvset.to_csv('{}\{}_set.csv'.format(results_path, title), mode='a', header=False)    # append to the csv file
+        df2csv(csvset)
         del csvset
     except ValueError:
         pass
