@@ -46,11 +46,19 @@ class Thermal:
                                                  '{}.in\n'.format(self.frame)]]
 
             # change thermal load
-            elif l.startswith('   F  '):  # heating boundaries
+            elif l.startswith('   F  ') and 'FISO' in l:        # heating boundaries with FISO
                 if self.model == 'CFD':
-                    init[n] = 'FLUX {}'.format('CFD'.join(l[4:].split('FISO')))
+                    if 'F20' not in l:
+                        init[n] = 'FLUX {}'.format('CFD'.join(l[4:].split('FISO')))
+                    else:
+                        init[n] = 'FLUX {}'.format('NO'.join(('CFD'.join(l[4:].split('FISO'))).split('F20')))
+                        init.insert(n + 1, 'NO'.join(l.split('FISO')))
                 elif self.model == 'LCF':
-                    init[n] = 'FLUX {}'.format('LOCAFI'.join(l[4:].split('FISO')))
+                    if 'F20' not in l:
+                        init[n] = 'FLUX {}'.format('LOCAFI'.join(l[4:].split('FISO')))
+                    else:
+                        init[n] = 'FLUX {}'.format('NO'.join(('LOCAFI'.join(l[4:].split('FISO'))).split('F20')))
+                        init.insert(n + 1, 'NO'.join(l.split('FISO')))
                 # elif self.model == 'HSM':
                 #     init[n] = 'FLUX {}'.format('HSM'.join(l.split('FISO')[1:]))
 
