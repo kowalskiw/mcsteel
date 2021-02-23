@@ -244,5 +244,30 @@ def main(model, type='s3dt2d', path=getcwd()):
         chdir(wd)
 
 
+def scripted(model, type='s3dt2d', path=getcwd()):
+    wd = getcwd()
+    if path != wd:
+        chdir(path)
+    print('SAFIR calculations in {} directory - to be finished'.format(getcwd()))
+    return 0
+    # these commented lines below are for ISO analysis, probably not necessary in common use
+    # for prof in folders:
+    #     Thermal(prof, 'ISO').run()
+
+    # Mechanical(folders).run()       # frame structural analysis - ISO curve
+
+    if model == 'LCF' and 't2d' in type:
+        for prof in folders:
+            Thermal(prof, model).run()  # natural fire mode
+
+    if model == 'LCF' and 's3d' in type:
+        Mechanical(folders, mode='NF').run()  # frame structural analysis - natural fire
+
+    print('\nAll SAFIR calculations finished, well done engineer!\n\n')
+
+    if path != wd:
+        chdir(wd)
+
+
 if __name__ == '__main__':
     main(*argv[1:])

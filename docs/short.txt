@@ -1,0 +1,11 @@
+1. Setting up multisimulation configuration:
+	a) .USER file -- user configuration (config-, results-, SAFIR-path, miu, simulation time, RSET, fire type, case title, maximum number of iterations);
+	b) .FUL file -- fuel properties (coordinates, HRRPUA, partial probability of ignition, time of sprinkler activation, fire growth factor if needed); /to be moved to DXF geometry/
+	c) .DXF file -- geometry of the structure;
+	d) profiles' .GID projects -- already calculated with ISO fire curve;
+	e) structure's .GID project -- already calculated with ISO fire curve.
+
+2. Running multisimulation with commands:
+	a) 'python path\to\mcsteel\mc.py path\to\user\configuration.user' -- generating a set of simulations using the Monte Carlo script, returns 'title_set.CSV' file and directories with simulations' input files in results_path directory;
+	b) 'python d:\mcsteel\multi.py path\to\user\configuration.user' -- running each simulation and adding the results of each to 'title.results.csv' file, returns also 'results.TXT' summary file and distributions 'dist_d.PNG' and 'dist_p.PNG'; /supporting clusters available soon/
+	c) python d:\mcsteel\selsim.py path\to\user\configuration.user -- selecting the worst percentile of scenarios to global analyses of structure. /auto-running global analyses available soon/

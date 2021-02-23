@@ -232,7 +232,10 @@ class MultiT2D:
             file.writelines(lines)
 
     def profile(self, chid, profile_type):
-        copyfile('{1}/{0}.gid/{0}.in'.format(profile_type, config['config_path']), '{}.in'.format(profile_type))
+        try:
+            copyfile('{1}/{0}.gid/{0}.in'.format(profile_type, config['config_path']), '{}.in'.format(profile_type))
+        except FileNotFoundError:
+            raise FileNotFoundError('There is no {}.gid directory among configuration'.format(profile_type))
 
         # change profile to LCF and set chid.in as S3D
         Thermal(chid, 'LCF', frame_chid=chid, profile_pth='{}.in'.format(profile_type)).change_in()
@@ -250,7 +253,7 @@ class MultiT2D:
 # generates a set of n scenarios
 def generate_set(n, title, t_end, fire_type, config_path, results_path):
     def create_df():
-        return df(columns=('ID', 'time', 'element_type', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s', 'distance',
+        return df(columns=('ID', 'element_type', 'time', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s', 'distance',
                            'ceiling_lvl', 'profile', 'u_x', 'u_y', 'u_z', 'HRRPUA', 'alpha'))
 
     # append DataFrame to CSV file

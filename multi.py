@@ -1,6 +1,5 @@
 from os import listdir, chdir, getcwd
 import numpy as np
-from selsim import linear_inter
 from pandas import read_csv, DataFrame
 from fdsafir import run_safir
 from sys import argv
@@ -20,6 +19,11 @@ def user_config(user_file):
                 value = splited[-1]
             user[splited[0]] = value
     return user
+
+
+# linear interpolation between two points with given first coordinate x_i, returns y_i
+def linear_inter(point1, point2, x_i):
+    return point1[1] + (x_i - point1[0]) / (point2[0] - point1[0]) * (point2[1] - point1[1])
 
 
 '''Run single simulation'''
@@ -112,11 +116,12 @@ class Queue:
             results[chid] = self.rs().mean_temp()
             chdir('..')
 
-            # save results every 20 sim
-            if index % 20 != 0:
+            # save results every 5 scenarios (10 sim)
+            if (index+1) % 8 == 0:
                 self.save_res(results, export.temp_crit(self.user['miu']))
+                results.clear()
 
-        self.save_res(results, export.temp_crit(self.user['miu']))
+        [self.save_res(results, export.temp_crit(self.user['miu'])) if results else None]
 
     # choose theta_a,max and t_theta,a,cr and add those values to case.res
     def save_res(self, tables, t_crit):
@@ -126,7 +131,6 @@ class Queue:
                 print('{} created'.format(path_to_res))
 
         compared = []
-        start = int(list(tables.keys())[0])
         for k, v in tables.items():
             temp_max = 0
             upper_index = None
@@ -148,7 +152,8 @@ class Queue:
             compared.append([str(k), temp_max, time_crit])
 
             # compare beam with column scenario
-            if (int(k) - start) % 2 == 1:
+            if len(compared) == 2:
+                print(compared)
                 # smaller time_crit except 0
                 if compared[0][2] + compared[1][2] > 0 and compared[0][2] < compared[1][2]:
                     comp_id = compared.pop(0)[0]
