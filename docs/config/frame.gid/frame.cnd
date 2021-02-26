@@ -1,0 +1,352 @@
+BOOK:Constraints
+NUMBER: 1 CONDITION: Point-Constraints
+CONDTYPE: over points
+CONDMESHTYPE: over nodes
+QUESTION: X-Constraint:#CB#(1,0)
+VALUE: 1
+QUESTION: Y-Constraint:#CB#(1,0)
+VALUE: 1
+QUESTION: Z-Constraint:#CB#(1,0)
+VALUE: 1
+QUESTION: ROTX.Constraint:#CB#(1,0)
+VALUE: 0
+QUESTION: ROTY.Constraint:#CB#(1,0)
+VALUE: 0
+QUESTION: ROTZ.Constraint:#CB#(1,0)
+VALUE: 0
+END CONDITION
+NUMBER: 2 CONDITION: Oblique_Support
+CONDTYPE: over points
+CONDMESHTYPE: over nodes
+QUESTION: Point2_Delta-X
+VALUE: 0.0
+HELP: Delta-X coordinate for 2. point of constraining plane
+QUESTION: Point2_Delta-Y
+VALUE: 0.0
+HELP: Delta-Y coordinate for 2. point of constraining plane
+QUESTION: Point2_Delta-Z
+VALUE: 0.0
+HELP: Delta-Z coordinate for 2. point of constraining plane
+QUESTION: Point3_Delta-X
+VALUE: 0.0
+HELP: Delta-X coordinate for 3. point of constraining plane
+QUESTION: Point3_Delta-Y
+VALUE: 0.0
+HELP: Delta-Y coordinate for 3. point of constraining plane
+QUESTION: Point3_Delta-Z
+VALUE: 0.0
+HELP: Delta-Z coordinate for 3. point of constraining plane
+END CONDITION
+NUMBER: 3 CONDITION: Line-Constraints
+CONDTYPE: over lines
+CONDMESHTYPE: over nodes
+HELP: Use this condition to prescribe the displacement or rotation of all the nodes that belong to the line.\nEvery marked flag will prescribe the movement for that degree of freedom.\nThe values fields permmit to set a prescribed displacement or rotation for that degree.\nUnits in International System for values are:\n\t (m) for the displacements\n\t(rad) for the rotations.
+QUESTION: X-Constraint:#CB#(1,0)
+VALUE: 1
+QUESTION: Y-Constraint:#CB#(1,0)
+VALUE: 1
+QUESTION: Z-Constraint:#CB#(1,0)
+VALUE: 1
+QUESTION: ROTX.Constraint:#CB#(1,0)
+VALUE: 0
+QUESTION: ROTY.Constraint:#CB#(1,0)
+VALUE: 0
+QUESTION: ROTZ.Constraint:#CB#(1,0)
+VALUE: 0
+END CONDITION
+BOOK:Loads
+NUMBER: 4 CONDITION: Point-Load
+CONDTYPE: over points
+CONDMESHTYPE: over nodes
+QUESTION: X-Force
+VALUE: 0.0
+QUESTION: Y-Force
+VALUE: 0.0
+QUESTION: Z-Force
+VALUE: 0.0
+QUESTION: X-Moment
+VALUE: 0.0
+QUESTION: Y-Moment
+VALUE: 0.0
+QUESTION: Z-Moment
+VALUE: 0.0
+QUESTION: LOAD_FUNCTION#CB#(F1,FLOAD,F1PS,F1000PS,User_Defined)
+VALUE: F1
+HELP: Loading vector of the loads.
+DEPENDENCIES: (F1,HIDE,Filename1.fct,#CURRENT#)
+DEPENDENCIES: (FLOAD,HIDE,Filename1.fct,#CURRENT#)
+DEPENDENCIES: (F1PS,HIDE,Filename1.fct,#CURRENT#)
+DEPENDENCIES: (F1000PS,HIDE,Filename1.fct,#CURRENT#)
+DEPENDENCIES: (User_Defined,RESTORE,Filename1.fct,#CURRENT#)
+QUESTION: Filename1.fct
+VALUE: x.fct
+END CONDITION
+NUMBER: 5 CONDITION: Beam-Load
+CONDTYPE: over lines
+CONDMESHTYPE: over body elements
+QUESTION: X_Pressure
+VALUE: 0.0
+QUESTION: Y_Pressure
+VALUE: 0.0
+QUESTION: Z_Pressure
+VALUE: 0.0
+QUESTION: LOAD_FUNCTION#CB#(F1,FLOAD,F1PS,F1000PS,User_Defined)
+VALUE: F1
+HELP: Loading vector of the loads.
+DEPENDENCIES: (F1,HIDE,Filename2.fct,#CURRENT#)
+DEPENDENCIES: (FLOAD,HIDE,Filename2.fct,#CURRENT#)
+DEPENDENCIES: (F1PS,HIDE,Filename2.fct,#CURRENT#)
+DEPENDENCIES: (F1000PS,HIDE,Filename2.fct,#CURRENT#)
+DEPENDENCIES: (User_Defined,RESTORE,Filename2.fct,#CURRENT#)
+QUESTION: Filename2.fct
+VALUE: y.fct
+END CONDITION
+NUMBER: 6 CONDITION: TrapLoadGlobal
+CONDTYPE: over lines
+CONDMESHTYPE: over body elements
+QUESTION: X_pressure_node1_global
+VALUE: 0.0
+QUESTION: Y_pressure_node1_global
+VALUE: 0.0
+QUESTION: Z_pressure_node1_global
+VALUE: 0.0
+QUESTION: X_pressure_node2_global
+VALUE: 0.0
+QUESTION: Y_pressure_node2_global
+VALUE: 0.0
+QUESTION: Z_pressure_node2_global
+VALUE: 0.0
+QUESTION: LOAD_FUNCTION#CB#(F1,FLOAD,F1PS,F1000PS,User_Defined)
+VALUE: F1
+HELP: Loading vector of the loads.
+DEPENDENCIES: (F1,HIDE,Filename.fct,#CURRENT#)
+DEPENDENCIES: (FLOAD,HIDE,Filename.fct,#CURRENT#)
+DEPENDENCIES: (F1PS,HIDE,Filename.fct,#CURRENT#)
+DEPENDENCIES: (F1000PS,HIDE,Filename.fct,#CURRENT#)
+DEPENDENCIES: (User_Defined,RESTORE,Filename.fct,#CURRENT#)
+IMAGE: normals.png
+QUESTION: Filename.fct
+VALUE: y.fct
+QUESTION: Id#FUNC#(NumEntity)
+VALUE: 0
+STATE: HIDDEN
+END CONDITION
+NUMBER: 7 CONDITION: TrapLoadLocal
+CONDTYPE: over lines
+CONDMESHTYPE: over body elements
+QUESTION: X_pressure_node1_local
+VALUE: 0.0
+QUESTION: Y_pressure_node1_local
+VALUE: 0.0
+QUESTION: Z_pressure_node1_local
+VALUE: 0.0
+QUESTION: X_pressure_node2_local
+VALUE: 0.0
+QUESTION: Y_pressure_node2_local
+VALUE: 0.0
+QUESTION: Z_pressure_node2_local
+VALUE: 0.0
+QUESTION: LOAD_FUNCTION#CB#(F1,FLOAD,F1PS,F1000PS,User_Defined)
+VALUE: F1
+HELP: Loading vector of the loads.
+DEPENDENCIES: (F1,HIDE,Filename.fct,#CURRENT#)
+DEPENDENCIES: (FLOAD,HIDE,Filename.fct,#CURRENT#)
+DEPENDENCIES: (F1PS,HIDE,Filename.fct,#CURRENT#)
+DEPENDENCIES: (F1000PS,HIDE,Filename.fct,#CURRENT#)
+DEPENDENCIES: (User_Defined,RESTORE,Filename.fct,#CURRENT#)
+IMAGE: normals.png
+QUESTION: Filename.fct
+VALUE: y.fct
+QUESTION: Id#FUNC#(NumEntity)
+VALUE: 0
+STATE: HIDDEN
+END CONDITION
+NUMBER: 8 CONDITION: HydrostaticLoad
+CONDTYPE: over lines
+CONDMESHTYPE: over body elements
+QUESTION: File-Name
+VALUE: hfunc.txt
+HELP: Enter the file name (maximum 10 characters) with the function describing the level of the water table
+QUESTION: Specific_weight
+VALUE: 0.0
+END CONDITION
+NUMBER: 9 CONDITION: Global_Shell_Load
+CONDTYPE: over surfaces
+CONDMESHTYPE: over body elements
+HELP: A pressure load over the shell given in global axes.
+QUESTION: X_Pressure
+VALUE: 0.0
+QUESTION: Y_Pressure
+VALUE: 0.0
+QUESTION: Z_Pressure
+VALUE: 0.0
+QUESTION: LOAD_FUNCTION#CB#(F1,FLOAD,F1PS,F1000PS,User_Defined)
+VALUE: F1
+HELP: Loading vector of the loads.
+DEPENDENCIES: (F1,HIDE,Filename3.fct,#CURRENT#)
+DEPENDENCIES: (FLOAD,HIDE,Filename3.fct,#CURRENT#)
+DEPENDENCIES: (F1PS,HIDE,Filename3.fct,#CURRENT#)
+DEPENDENCIES: (F1000PS,HIDE,Filename3.fct,#CURRENT#)
+DEPENDENCIES: (User_Defined,RESTORE,Filename3.fct,#CURRENT#)
+QUESTION: Filename3.fct
+VALUE: z.fct
+END CONDITION
+BOOK:Properties
+NUMBER: 10 CONDITION: BEAM_Cross_Section
+CONDTYPE: over lines
+CONDMESHTYPE: over body elements
+QUESTION: File-Name
+VALUE: safir.tem
+HELP: Full name of the file where the information on this section type can be found.  Usually the extension is .TEM.  File name is left justified.
+QUESTION: Local-Axes#LA#(-GLOBAL-,-Automatic-,-Automatic_alt-)
+VALUE: -Automatic-
+QUESTION: Number_of_materials#CB#(1,2,3,4)
+VALUE: 1
+HELP: Select the number of materials in this .tem file
+DEPENDENCIES: (1, SET, Mat2_Global_Nr, #CURRENT#, SET, Mat3_Global_Nr, #CURRENT#, SET, Mat4_Global_Nr, #CURRENT#)
+DEPENDENCIES: (2, RESTORE, Mat2_Global_Nr, #CURRENT#, SET, Mat3_Global_Nr, #CURRENT#, SET, Mat4_Global_Nr, #CURRENT#)
+DEPENDENCIES: (3, RESTORE, Mat2_Global_Nr, #CURRENT#, RESTORE, Mat3_Global_Nr, #CURRENT#, SET, Mat4_Global_Nr, #CURRENT#)
+DEPENDENCIES: (4, RESTORE, Mat2_Global_Nr, #CURRENT#, RESTORE, Mat3_Global_Nr, #CURRENT#, RESTORE, Mat4_Global_Nr, #CURRENT#)
+QUESTION: Mat1_Global_Nr
+VALUE: 1
+HELP: Enter the global material number for the 1. material in this .tem file.
+QUESTION: Mat2_Global_Nr
+VALUE: 2
+HELP: Enter the global material number for the 2. material in this .tem file.
+STATE: disabled
+QUESTION: Mat3_Global_Nr
+VALUE: 3
+HELP: Enter the global material number for the 3. material in this .tem file.
+STATE: disabled
+QUESTION: Mat4_Global_Nr
+VALUE: 4
+HELP: Enter the global material number for the 4. material in this .tem file.
+STATE: disabled
+END CONDITION
+NUMBER: 11 CONDITION: TRUSS_Cross_Section
+CONDTYPE: over lines
+CONDMESHTYPE: over body elements
+QUESTION: Temperature_File-Name
+VALUE: temp.txt
+QUESTION: Area
+VALUE: 0.0
+QUESTION: Residual_stess
+VALUE: 0.0
+QUESTION: global_material_number
+VALUE: 0
+END CONDITION
+NUMBER: 12 CONDITION: SHELL_Section_property
+CONDTYPE: over surfaces
+CONDMESHTYPE: over body elements
+QUESTION: Shell_Temp_File-Name
+VALUE: test.tsh
+HELP: File name where the information concerning this section type is read.
+QUESTION: Number_of_shell_materials#CB#(1,2,3)
+VALUE: 1
+DEPENDENCIES: (1, SET, Shell_Mat2_Global_Nr, #CURRENT#, SET, Shell_Mat3_Global_Nr, #CURRENT#)
+DEPENDENCIES: (2, RESTORE, Shell_Mat2_Global_Nr, #CURRENT#, SET, Shell_Mat3_Global_Nr, #CURRENT#)
+DEPENDENCIES: (3, RESTORE, Shell_Mat2_Global_Nr, #CURRENT#, RESTORE, Shell_Mat3_Global_Nr, #CURRENT#)
+QUESTION: Shell_Mat1_Global_Nr
+VALUE: 1
+HELP: Enter the global material number for the 1. material in this .tsh file.
+QUESTION: Shell_Mat2_Global_Nr
+VALUE: 2
+HELP: Enter the global material number for the 2. material in this .tsh file.
+STATE: DISABLED
+QUESTION: Shell_Mat3_Global_Nr
+VALUE: 3
+HELP: Enter the global material number for the 3. material in this .tsh file.
+STATE: DISABLED
+END CONDITION
+NUMBER: 13 CONDITION: SOLID_Section_Property
+CONDTYPE: over volumes
+CONDMESHTYPE: over body elements
+QUESTION: Solid_Mat_Global_Nr
+VALUE: 1
+HELP: Enter the global material number for the material in this solid element
+END CONDITION
+BOOK:Mass for Dynamic Calculation
+NUMBER: 14 CONDITION: Mass_on_Node
+CONDTYPE: over points
+CONDMESHTYPE: over nodes
+QUESTION: Mass_1
+VALUE: 0.0
+Help: Mass linked to degree of freedom 1
+QUESTION: Mass_2
+VALUE: 0.0
+Help: Mass linked to degree of freedom 2
+QUESTION: Mass_3
+VALUE: 0.0
+Help: Mass linked to degree of freedom 3
+QUESTION: Mass_4
+VALUE: 0.0
+Help: Mass linked to degree of freedom 4
+QUESTION: Mass_5
+VALUE: 0.0
+Help: Mass linked to degree of freedom 5
+QUESTION: Mass_6
+VALUE: 0.0
+Help: Mass linked to degree of freedom 6
+QUESTION: Mass_7
+VALUE: 0.0
+Help: Mass linked to degree of freedom 7
+END CONDITION
+NUMBER: 15 CONDITION: Mass_on_Beam
+CONDTYPE: over lines
+CONDMESHTYPE: over body elements
+QUESTION: Distributed-Beam-Mass
+VALUE: 0.0
+Help: Uniformly distributed mass applied on the beam element(kg/m)
+QUESTION: Rotational-Inertia
+VALUE: 0.0
+Help: Rotational inertia of the beam element section
+END CONDITION
+NUMBER: 16 CONDITION: Mass_on_Shell
+CONDTYPE: over surfaces
+CONDMESHTYPE: over body elements
+QUESTION: Distributed-Shell-Mass
+VALUE: 0.0
+Help: Uniformly distributed mass on the shell element(kg/m2)
+END CONDITION
+BOOK:Relaxations
+NUMBER: 17 CONDITION: Relax_Beam_DOF
+CONDTYPE: over lines
+CONDMESHTYPE: over body elements
+TITLE: Node1
+QUESTION: N1_DOF1
+VALUE: -1
+Help: -1 for fixed, 0 for released, value greater than 0 for stiffness value
+QUESTION: N1_DOF2
+VALUE: -1
+QUESTION: N1_DOF3
+VALUE: -1
+QUESTION: N1_DOF4
+VALUE: -1
+QUESTION: N1_DOF5
+VALUE: -1
+QUESTION: N1_DOF6
+VALUE: -1
+QUESTION: N1_DOF7
+VALUE: -1
+IMAGE: normals.png
+TITLE: Node2
+QUESTION: N2_DOF1
+VALUE: -1
+Help: -1 for fixed, 0 for released, value greater than 0 for stiffness value
+QUESTION: N2_DOF2
+VALUE: -1
+QUESTION: N2_DOF3
+VALUE: -1
+QUESTION: N2_DOF4
+VALUE: -1
+QUESTION: N2_DOF5
+VALUE: -1
+QUESTION: N2_DOF6
+VALUE: -1
+QUESTION: N2_DOF7
+VALUE: -1
+IMAGE: normals.png
+QUESTION: Id#FUNC#(NumEntity)
+VALUE: 0
+STATE: HIDDEN
+END CONDITION

@@ -1,9 +1,11 @@
-1. Setting up multisimulation configuration:
+1. Setting up multisimulation configuration (examples included in '/config' directory); file name is the same as case_title if not specified below:
 	a) .USER file -- user configuration (config-, results-, SAFIR-path, miu, simulation time, RSET, fire type, case title, maximum number of iterations);
-	b) .FUL file -- fuel properties (coordinates, HRRPUA, partial probability of ignition, time of sprinkler activation, fire growth factor if needed); /to be moved to DXF geometry/
+	b) .FUL file -- fuel properties (coordinates, HRRPUA, partial probability of ignition, time of sprinkler activation, fire growth factor if needed) OR b1) + b2)
+	b1) .FUEL file -- fuel properties (HRRPUA, partial probability of ignition, time of sprinkler activation)
+	b2) .STP file -- geometry of the fuel sites, parallelepipeds included as GiD volumes, layer's names reffer to the .FUEL 'name' columns;
 	c) .DXF file -- geometry of the structure;
-	d) profiles' .GID projects -- already calculated with ISO fire curve;
-	e) structure's .GID project -- already calculated with ISO fire curve.
+	d) profiles' .GID projects -- already calculated with ISO fire curve, names reffer to layers name in 'frame.gid' and DXF as well;
+	e) structure's .GID project -- already calculated with ISO fire curve, named 'frame'.
 
 2. Running multisimulation with commands:
 	a) 'python path\to\mcsteel\mc.py path\to\user\configuration.user' -- generating a set of simulations using the Monte Carlo script, returns 'title_set.CSV' file and directories with simulations' input files in results_path directory;

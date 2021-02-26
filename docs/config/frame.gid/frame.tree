@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<gid>
+  <pre>
+    <groups_open>
+    </groups_open>
+    <layers_open>
+      <layer fullname='fires' open='1'/>
+      <layer fullname='fires_brak' open='1'/>
+      <layer fullname='fires_brak//Layer0' open='1'/>
+    </layers_open>
+  </pre>
+</gid>

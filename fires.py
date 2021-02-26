@@ -1,6 +1,8 @@
 from numpy import random, pi
-from pandas import read_csv as rcsv
+from pandas import read_csv, merge, DataFrame
 from math import exp
+from steputils import p21
+from multi import user_config
 
 
 # triangular distribution sampler
@@ -29,9 +31,12 @@ def mc_rand(csv):
 
 
 # drawn fire localization
-def f_localization(name):
-
-    ffile = rcsv('{}.ful'.format(name), sep=',')  # read FUL file
+# cwd == confg_path
+def f_localization(title, config='fuel&stp'):
+    if config == 'fuel&stp':
+        ffile = Fuel(title).read_fuel()  # read FUL file
+    else:
+        ffile = read_csv('{}.ful'.format(title))
     fire_site = mc_rand(ffile)[0]  # generate fire coordinates from MC function
     config = ffile.iloc[fire_site]  # information about chosen fuel site
 
@@ -43,7 +48,112 @@ def f_localization(name):
     return config, random_position((config.XA, config.XB), (config.YA, config.YB), zes=(config.ZA, config.ZB))
 
 
-'''fire randomization class, which is recalled in CreateOZN.fire()'''
+'''Import fuel configuration from STEP (geometrical distribution) and FUEL (data)
+- to be merged with Properties config
+
+cwd == config_path'''
+
+
+class Fuel:
+    def __init__(self, title):
+        self.title = title
+        self.step = p21.readfile('{}.stp'.format(title))
+
+    # return points of the solid
+    def find_points(self, volume):
+        def params(ref, index=1):
+            par = self.step.get(ref).entity.params
+
+            while '*' in par[index]:
+                index += 1
+
+            if type(par[index]) == p21.Reference:
+                return [par[index]]
+            else:
+                return [*par[index]]
+
+        def add_point(new_point):
+            if new_point not in points:
+                points.append(new_point)
+
+        points = []
+
+        for i in params(volume.ref):    # manifold
+            for j in params(i):  # closed shells
+                for k in params(j):  # advanced face
+                    for l in params(k):  # face outer bound
+                        for m in params(l):  # edge loop
+                            for n in params(m):  # oriented edge
+                                for o in params(n, index=1):  # edge curve -- first point
+                                    for p in params(o):  # vertex_point
+                                        add_point(params(p))  # cartesian_point
+                                for o in params(n, index=2):  # edge curve -- first point
+                                    for p in params(o):  # vertex_point
+                                        add_point(params(p))  # cartesian_point
+
+        return points
+
+    # return all volumes present in step file
+    def read_step(self):
+
+        vols = []
+        layers = []
+        for i in self.step:
+            if type(i) == p21.SimpleEntityInstance:
+                name = i.entity.name
+                if name == 'MANIFOLD_SOLID_BREP':    # find volumes
+                    vols.append(i)
+                elif name == 'PRESENTATION_LAYER_ASSIGNMENT':            # find layers
+                    layers.append(i)
+
+        return vols, layers
+
+    # return solid point entities in [[XA, XB], [YA, YB], [ZA, ZB]]format
+    def pts2fds(self, pts):
+        ptset = []
+        xyz = [[], [], []]
+        [[xyz[i].append(p[i]) for i in range(3)] for p in pts]
+        [ptset.extend([min(i), max(i)]) for i in xyz]
+
+        return ptset
+
+    # return layer name: fuelX, where X is an integer correspondent to .FUL index
+    def layer(self, ref, layers):
+        # find layers names
+        for l in layers:
+            params = l.entity.params
+            if ref in params[-1]:
+                return params[0]
+        return False
+
+    def merge_data(self, vols):
+        merged = DataFrame(columns=['XA', 'XB', 'YA', 'YB', 'ZA', 'ZB', 'MC', 'hrrpua_min', 'hrrpua_max', 'hrrpua_mode',
+                                    't_sprink'])
+
+        fuel = read_csv('{}.fuel'.format(self.title))
+
+        for v in vols:
+            data = fuel[fuel.name == v[0]]
+            # convert list to DF
+            coords = DataFrame([v[0], *v[1]], index=['name', 'XA', 'XB', 'YA', 'YB', 'ZA', 'ZB']).T
+            # merge DF1 and DF2
+            merged = merged.append([merge(coords, data).drop('name', axis=1)])
+
+        return merged
+
+    def read_fuel(self):
+        fuel = []
+        vols, lays = self.read_step()
+        for v in vols:
+            pts = self.find_points(v)
+            fuel.append([self.layer(v.ref, lays), self.pts2fds(pts)])
+
+        # merge with .FUL config type
+        return self.merge_data(fuel)
+
+
+'''Draw fire properties from input distributions
+operates on the fire types included in the class - to be changed'''
 
 
 class Properties:

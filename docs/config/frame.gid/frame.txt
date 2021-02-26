@@ -1,0 +1,12 @@
+ 
+ SAFIR version 2019.a.6 is running.
+ Please type "FILENAME" of "FILENAME.IN" :   SAFIR is allocating memory
+ ERROR from subr. ELMBEAM.
+   Impossible to open the file"rro200x300x6.tem              ".
+
+Projekt:frame
+Opened: frame.flavia.msh
+nNodes = 546, nBeam = 273, nShell = 0, nTruss = 0
+number of integration points for beams, NG = 2
+Cosed frame.flavia.msh
+PRINTMN found

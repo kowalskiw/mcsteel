@@ -1,0 +1,32 @@
+NUMBER: 1 MATERIAL: STEELEC3
+QUESTION: Global_Material_number
+VALUE: 1
+QUESTION: E-Modulus_(Young)
+VALUE: 2.1e11
+QUESTION: Poisson_ratio
+VALUE: 0.3
+QUESTION: Yield_strength_(N/m^2)
+VALUE: 3.55e8
+END MATERIAL
+NUMBER: 2 MATERIAL: SILCONCEC2
+QUESTION: Global_Material_number
+VALUE: 1
+QUESTION: Poisson_ratio
+VALUE: 0.3
+QUESTION: fc,_compressive_stengh_(N/m^2)
+VALUE: +3.0e7
+QUESTION: ft,_tension_strength_(N/m^2)
+VALUE: +3.0e6
+QUESTION: PARACOLD(5,NM)
+VALUE: 0
+END MATERIAL
+NUMBER: 3 MATERIAL: STEEL_WPB
+QUESTION: Global_Material_number
+VALUE: 1
+QUESTION: E-Modulus_(Young)
+VALUE: 2.1e11
+QUESTION: Poisson_ratio
+VALUE: 0.3
+QUESTION: Yield_strength_(N/m^2)
+VALUE: 3.55e8
+END MATERIAL
