@@ -34,11 +34,10 @@ The script also will run chosen scenarios (basic McSAFIR functionality)"""
 import pandas as pd
 from os import makedirs, scandir, chdir
 from shutil import copyfile as copy
-import fdsafir
-import numpy as np
 from math import ceil
 from sys import argv
-from multi import user_config
+
+from fdsafir import scripted, user_config
 
 
 '''iterate over DF to select X simulations or 1% of the worst'''
@@ -114,12 +113,10 @@ class Prepare:
 
 
 def run(config, sim_number=0):
-
+    # select the worst scenarios and generate input files
     Prepare(config['results_path'], config['case_title'], sim_number=sim_number).save_in_dir(config['config_path'])
-    # run SAFIR simulation using general model and selected fire
-    chdir('worst')
-    # for sim in scandir():
-    #     fdsafir.main('LCF', path=sim.name)
+    # run SAFIR simulation using global structure model and selected fire
+    scripted(config['results_path', 'safir_path', 'config_path'])
 
 
 if __name__ == '__main__':

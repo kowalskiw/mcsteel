@@ -1,7 +1,6 @@
 from time import time as current_seconds
 from time import ctime
 import numpy as np
-from fires import f_localization, Properties
 import ezdxf
 import shapely.geometry as sh
 from pandas import DataFrame as df
@@ -9,9 +8,10 @@ from pandas import read_csv as rcsv
 import core
 from os import mkdir, chdir
 from shutil import copyfile
-from fdsafir import Thermal
-from multi import user_config
 from sys import argv
+
+from fdsafir import Thermal, user_config
+from fires import f_localization, Properties
 
 '''Read geometry and map it to the fire (choose the most exposed sections)'''
 

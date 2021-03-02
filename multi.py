@@ -1,24 +1,11 @@
 from os import listdir, chdir, getcwd
 import numpy as np
 from pandas import read_csv, DataFrame
-from fdsafir import run_safir
 from sys import argv
 import export
 from pandas.errors import EmptyDataError
 
-
-# return user configuration directory
-def user_config(user_file):
-    user = {}
-    with open(user_file) as file:
-        for line in file.readlines():
-            splited = line.split()
-            try:
-                value = float(splited[-1])
-            except ValueError:
-                value = splited[-1]
-            user[splited[0]] = value
-    return user
+from fdsafir import run_safir, user_config
 
 
 # linear interpolation between two points with given first coordinate x_i, returns y_i
@@ -121,7 +108,7 @@ class Queue:
                 self.save_res(results, export.temp_crit(self.user['miu']))
                 results.clear()
 
-        [self.save_res(results, export.temp_crit(self.user['miu'])) if results else None]
+        return [self.save_res(results, export.temp_crit(self.user['miu'])) if results else -1]
 
     # choose theta_a,max and t_theta,a,cr and add those values to case.res
     def save_res(self, tables, t_crit):
@@ -177,6 +164,8 @@ class Queue:
 
         # # clear Data Frame
         # self.results_df = self.results_df.iloc[0:0]
+
+        return 0
 
 
 '''Run multisimulation on cluster'''

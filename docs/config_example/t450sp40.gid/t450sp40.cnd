@@ -1,0 +1,54 @@
+NUMBER: 1 CONDITION: Frontier_constraints
+CONDTYPE: over lines
+CONDMESHTYPE: over face elements
+QUESTION: Temperature_curve#CB#(FISO,FISO0,ASTME119,HYDROCARB,F1000THPS,F20,F100,USER)
+VALUE: FISO
+DEPENDENCIES: (USER, RESTORE, File_name_of_USER-Temp.curve,#CURRENT#)
+DEPENDENCIES: (FISO, HIDE,File_name_of_USER-Temp.curve,#CURRENT#)
+DEPENDENCIES: (FISO0, HIDE,File_name_of_USER-Temp.curve,#CURRENT#)
+DEPENDENCIES: (ASTME119, HIDE,File_name_of_USER-Temp.curve,#CURRENT#)
+DEPENDENCIES: (HYDROCARB, HIDE,File_name_of_USER-Temp.curve,#CURRENT#)
+DEPENDENCIES: (F1000THPS,HIDE,File_name_of_USER-Temp.curve,#CURRENT#)
+DEPENDENCIES: (F0 ,HIDE,File_name_of_USER-Temp.curve,#CURRENT#)
+DEPENDENCIES: (F20 ,HIDE,File_name_of_USER-Temp.curve,#CURRENT#)
+DEPENDENCIES: (F100 ,HIDE,File_name_of_USER-Temp.curve,#CURRENT#)
+QUESTION: File_name_of_USER-Temp.curve
+VALUE: -
+HELP: Filename of user temperature curve. ( max 10 characters !! )
+STATE: hidden
+END CONDITION
+NUMBER: 2 CONDITION: Flux_constraints
+CONDTYPE: over lines
+CONDMESHTYPE: over face elements
+QUESTION: File_name_of_USER-Flux-curve.txt_or_HASEMI_or_CFD_or_LOCAFI
+VALUE: flux.txt
+HELP: Filename of user Flux curve.
+END CONDITION
+NUMBER: 3 CONDITION: Void_constraints
+CONDTYPE: over lines
+CONDMESHTYPE: over face elements
+QUESTION: VoidNr
+VALUE: 1
+END CONDITION
+NUMBER: 4 CONDITION: Line_Temperature
+CONDTYPE: over lines
+CONDMESHTYPE: over nodes
+QUESTION: Temperature_Curve
+VALUE: F0
+HELP: Function name describing the evolution of the temperature with repect to time
+END CONDITION
+NUMBER: 5 CONDITION: Point_Temperature
+CONDTYPE: over points
+CONDMESHTYPE: over nodes
+QUESTION: Temperature_Curve
+VALUE: F0
+HELP: Function name describing the evolution of the temperature with repect to time
+END CONDITION
+NUMBER: 6 CONDITION: Point_Torsion_Constraint
+CONDTYPE: over points
+CONDMESHTYPE: over nodes
+HELP: Function name describing the evolution of the temperature with repect to time
+QUESTION: Constraint:#CB#(1,0)
+VALUE: 1
+STATE: HIDDEN
+END CONDITION

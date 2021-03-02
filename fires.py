@@ -2,7 +2,6 @@ from numpy import random, pi
 from pandas import read_csv, merge, DataFrame
 from math import exp
 from steputils import p21
-from multi import user_config
 
 
 # triangular distribution sampler
