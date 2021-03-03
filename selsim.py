@@ -116,7 +116,7 @@ def run(config, sim_number=0):
     # select the worst scenarios and generate input files
     Prepare(config['results_path'], config['case_title'], sim_number=sim_number).save_in_dir(config['config_path'])
     # run SAFIR simulation using global structure model and selected fire
-    scripted(config['results_path', 'safir_path', 'config_path'])
+    scripted(config['safir_path'], config['config_path'], config['results_path'])
 
 
 if __name__ == '__main__':
