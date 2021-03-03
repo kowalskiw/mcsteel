@@ -1,12 +1,2088 @@
  
  SAFIR version 2019.a.6 is running.
  Please type "FILENAME" of "FILENAME.IN" :   SAFIR is allocating memory
- ERROR from subr. ELMBEAM.
-   Impossible to open the file"rro200x300x6.tem              ".
+  SAFIR has finished subroutine DONNEE
+  BEGINNING OF PARDISO ALLOCATION
+  END OF PARDISO ALLOCATION
+ Reordering of the matrix completed by PARDISO 
+ Number of nonzeros in factors =       199538
+ Number of factorization MFLOPS =            7
 
-Projekt:frame
-Opened: frame.flavia.msh
-nNodes = 546, nBeam = 273, nShell = 0, nTruss = 0
-number of integration points for beams, NG = 2
-Cosed frame.flavia.msh
-PRINTMN found
+ time =     10.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.000E+00
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.325E+03
+ Norm of the total energy : 0.325E+03
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.311E+01
+ Norm of the total energy : 0.328E+03
+ Criterium of convergence  :0.009493
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.547E-02
+ Norm of the total energy : 0.328E+03
+ Criterium of convergence  :0.000017
+ ITER = 3
+
+ time =     20.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.328E+03
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.584E+03
+ Norm of the total energy : 0.912E+03
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.104E+02
+ Norm of the total energy : 0.923E+03
+ Criterium of convergence  :0.011295
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.202E-01
+ Norm of the total energy : 0.923E+03
+ Criterium of convergence  :0.000022
+ ITER = 3
+
+ time =     30.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.923E+03
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.238E+03
+ Norm of the total energy : 0.116E+04
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.466E+00
+ Norm of the total energy : 0.116E+04
+ Criterium of convergence  :0.000402
+ ITER = 2
+
+ time =     40.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.116E+04
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.281E+03
+ Norm of the total energy : 0.144E+04
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.628E+00
+ Norm of the total energy : 0.144E+04
+ Criterium of convergence  :0.000435
+ ITER = 2
+
+ time =     50.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.144E+04
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.317E+03
+ Norm of the total energy : 0.176E+04
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.777E+00
+ Norm of the total energy : 0.176E+04
+ Criterium of convergence  :0.000442
+ ITER = 2
+
+ time =     70.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.176E+04
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.724E+03
+ Norm of the total energy : 0.248E+04
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.580E+01
+ Norm of the total energy : 0.249E+04
+ Criterium of convergence  :0.002329
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.171E-01
+ Norm of the total energy : 0.249E+04
+ Criterium of convergence  :0.000007
+ ITER = 3
+
+ time =     90.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.249E+04
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.787E+03
+ Norm of the total energy : 0.328E+04
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.559E+01
+ Norm of the total energy : 0.328E+04
+ Criterium of convergence  :0.001703
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.527E-02
+ Norm of the total energy : 0.328E+04
+ Criterium of convergence  :0.000002
+ ITER = 3
+
+ time =    110.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.328E+04
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.133E+04
+ Norm of the total energy : 0.461E+04
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.514E+02
+ Norm of the total energy : 0.466E+04
+ Criterium of convergence  :0.011024
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.164E+00
+ Norm of the total energy : 0.466E+04
+ Criterium of convergence  :0.000035
+ ITER = 3
+
+ time =    130.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.466E+04
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.676E+04
+ Norm of the total energy : 0.114E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.943E+03
+ Norm of the total energy : 0.124E+05
+ Criterium of convergence  :0.076292
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.650E+01
+ Norm of the total energy : 0.124E+05
+ Criterium of convergence  :0.000526
+ ITER = 3
+
+ time =    150.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.124E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.107E+05
+ Norm of the total energy : 0.230E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.127E+04
+ Norm of the total energy : 0.243E+05
+ Criterium of convergence  :0.052282
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.624E+01
+ Norm of the total energy : 0.243E+05
+ Criterium of convergence  :0.000257
+ ITER = 3
+
+ time =    170.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.243E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.456E+06
+ Norm of the total energy : 0.480E+06
+ Criterium of convergence  :1.000000
+ A displacement is too big.
+ 
+
+ time =    160.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.243E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.235E+04
+ Norm of the total energy : 0.267E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.197E+03
+ Norm of the total energy : 0.269E+05
+ Criterium of convergence  :0.007340
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.291E+02
+ Norm of the total energy : 0.269E+05
+ Criterium of convergence  :0.001083
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    155.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.243E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.222E+03
+ Norm of the total energy : 0.245E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.417E+00
+ Norm of the total energy : 0.245E+05
+ Criterium of convergence  :0.000017
+
+ time =    160.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.245E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.223E+03
+ Norm of the total energy : 0.248E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.540E+00
+ Norm of the total energy : 0.248E+05
+ Criterium of convergence  :0.000022
+ ITER = 2
+
+ time =    165.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.248E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.225E+03
+ Norm of the total energy : 0.250E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.856E+00
+ Norm of the total energy : 0.250E+05
+ Criterium of convergence  :0.000034
+
+ time =    175.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.250E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.779E+03
+ Norm of the total energy : 0.258E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.104E+03
+ Norm of the total energy : 0.259E+05
+ Criterium of convergence  :0.004040
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.296E+00
+ Norm of the total energy : 0.259E+05
+ Criterium of convergence  :0.000011
+ ITER = 3
+
+ time =    185.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.259E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.876E+03
+ Norm of the total energy : 0.267E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.140E+03
+ Norm of the total energy : 0.269E+05
+ Criterium of convergence  :0.005213
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.386E+00
+ Norm of the total energy : 0.269E+05
+ Criterium of convergence  :0.000014
+ ITER = 3
+
+ time =    195.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.269E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.911E+03
+ Norm of the total energy : 0.278E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.147E+03
+ Norm of the total energy : 0.279E+05
+ Criterium of convergence  :0.005271
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.615E+00
+ Norm of the total energy : 0.279E+05
+ Criterium of convergence  :0.000022
+ ITER = 3
+
+ time =    205.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.279E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.907E+03
+ Norm of the total energy : 0.288E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.139E+03
+ Norm of the total energy : 0.290E+05
+ Criterium of convergence  :0.004791
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.192E+01
+ Norm of the total energy : 0.290E+05
+ Criterium of convergence  :0.000066
+ ITER = 3
+
+ time =    215.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.290E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.936E+03
+ Norm of the total energy : 0.299E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.132E+03
+ Norm of the total energy : 0.301E+05
+ Criterium of convergence  :0.004388
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.296E+01
+ Norm of the total energy : 0.301E+05
+ Criterium of convergence  :0.000099
+ ITER = 3
+
+ time =    225.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.301E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.285E+04
+ Norm of the total energy : 0.329E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.299E+03
+ Norm of the total energy : 0.332E+05
+ Criterium of convergence  :0.009006
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.359E+02
+ Norm of the total energy : 0.332E+05
+ Criterium of convergence  :0.001079
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    220.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.301E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.277E+03
+ Norm of the total energy : 0.303E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.300E+02
+ Norm of the total energy : 0.304E+05
+ Criterium of convergence  :0.000989
+
+ time =    225.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.304E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.273E+03
+ Norm of the total energy : 0.306E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.289E+02
+ Norm of the total energy : 0.307E+05
+ Criterium of convergence  :0.000943
+ ITER = 2
+
+ time =    230.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.307E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.271E+03
+ Norm of the total energy : 0.309E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.282E+02
+ Norm of the total energy : 0.310E+05
+ Criterium of convergence  :0.000911
+
+ time =    240.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.310E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.779E+03
+ Norm of the total energy : 0.317E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.113E+03
+ Norm of the total energy : 0.319E+05
+ Criterium of convergence  :0.003547
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.363E+01
+ Norm of the total energy : 0.319E+05
+ Criterium of convergence  :0.000114
+ ITER = 3
+
+ time =    250.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.319E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.728E+03
+ Norm of the total energy : 0.326E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.105E+03
+ Norm of the total energy : 0.327E+05
+ Criterium of convergence  :0.003221
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.307E+01
+ Norm of the total energy : 0.327E+05
+ Criterium of convergence  :0.000094
+ ITER = 3
+
+ time =    260.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.327E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.723E+03
+ Norm of the total energy : 0.334E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.938E+02
+ Norm of the total energy : 0.335E+05
+ Criterium of convergence  :0.002800
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.281E+01
+ Norm of the total energy : 0.335E+05
+ Criterium of convergence  :0.000084
+ ITER = 3
+
+ time =    270.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.335E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.711E+03
+ Norm of the total energy : 0.342E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.813E+02
+ Norm of the total energy : 0.343E+05
+ Criterium of convergence  :0.002369
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.278E+01
+ Norm of the total energy : 0.343E+05
+ Criterium of convergence  :0.000081
+ ITER = 3
+
+ time =    280.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.343E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.687E+03
+ Norm of the total energy : 0.350E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.735E+02
+ Norm of the total energy : 0.351E+05
+ Criterium of convergence  :0.002095
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.292E+01
+ Norm of the total energy : 0.351E+05
+ Criterium of convergence  :0.000083
+ ITER = 3
+
+ time =    290.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.351E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.680E+03
+ Norm of the total energy : 0.358E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.662E+02
+ Norm of the total energy : 0.358E+05
+ Criterium of convergence  :0.001847
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.275E+01
+ Norm of the total energy : 0.358E+05
+ Criterium of convergence  :0.000077
+ ITER = 3
+
+ time =    300.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.358E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.588E+03
+ Norm of the total energy : 0.364E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.446E+02
+ Norm of the total energy : 0.365E+05
+ Criterium of convergence  :0.001224
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.230E+01
+ Norm of the total energy : 0.365E+05
+ Criterium of convergence  :0.000063
+ ITER = 3
+
+ time =    310.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.365E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.554E+03
+ Norm of the total energy : 0.370E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.368E+02
+ Norm of the total energy : 0.370E+05
+ Criterium of convergence  :0.000994
+ ITER = 2
+
+ time =    320.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.370E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.532E+03
+ Norm of the total energy : 0.376E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.308E+02
+ Norm of the total energy : 0.376E+05
+ Criterium of convergence  :0.000818
+ ITER = 2
+
+ time =    330.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.376E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.508E+03
+ Norm of the total energy : 0.381E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.280E+02
+ Norm of the total energy : 0.381E+05
+ Criterium of convergence  :0.000735
+ ITER = 2
+
+ time =    350.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.381E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.225E+04
+ Norm of the total energy : 0.404E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.127E+03
+ Norm of the total energy : 0.405E+05
+ Criterium of convergence  :0.003135
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.427E+01
+ Norm of the total energy : 0.405E+05
+ Criterium of convergence  :0.000105
+ ITER = 3
+
+ time =    370.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.405E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.125E+06
+ Norm of the total energy : 0.165E+06
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.136E+07
+ Norm of the total energy : 0.153E+07
+ Criterium of convergence  :0.891895
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.132E+09
+ Norm of the total energy : 0.134E+09
+ Criterium of convergence  :0.988602
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    360.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.405E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.481E+03
+ Norm of the total energy : 0.410E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.318E+02
+ Norm of the total energy : 0.410E+05
+ Criterium of convergence  :0.000775
+ ITER = 2
+
+ time =    370.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.410E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.113E+04
+ Norm of the total energy : 0.422E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.136E+03
+ Norm of the total energy : 0.423E+05
+ Criterium of convergence  :0.003218
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.145E+03
+ Norm of the total energy : 0.424E+05
+ Criterium of convergence  :0.003413
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    365.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.410E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.163E+03
+ Norm of the total energy : 0.412E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.853E+01
+ Norm of the total energy : 0.412E+05
+ Criterium of convergence  :0.000207
+
+ time =    370.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.412E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.158E+03
+ Norm of the total energy : 0.414E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.756E+01
+ Norm of the total energy : 0.414E+05
+ Criterium of convergence  :0.000183
+ ITER = 2
+
+ time =    380.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.414E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.177E+04
+ Norm of the total energy : 0.432E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.237E+03
+ Norm of the total energy : 0.434E+05
+ Criterium of convergence  :0.005458
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.690E+03
+ Norm of the total energy : 0.441E+05
+ Criterium of convergence  :0.015650
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    375.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.414E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.156E+03
+ Norm of the total energy : 0.415E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.733E+01
+ Norm of the total energy : 0.415E+05
+ Criterium of convergence  :0.000177
+
+ time =    380.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.415E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.153E+03
+ Norm of the total energy : 0.417E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.783E+01
+ Norm of the total energy : 0.417E+05
+ Criterium of convergence  :0.000188
+ ITER = 2
+
+ time =    385.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.417E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.152E+03
+ Norm of the total energy : 0.419E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.794E+01
+ Norm of the total energy : 0.419E+05
+ Criterium of convergence  :0.000190
+
+ time =    395.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.419E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.460E+03
+ Norm of the total energy : 0.423E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.347E+02
+ Norm of the total energy : 0.424E+05
+ Criterium of convergence  :0.000820
+ ITER = 2
+
+ time =    405.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.424E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.299E+03
+ Norm of the total energy : 0.427E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.191E+02
+ Norm of the total energy : 0.427E+05
+ Criterium of convergence  :0.000448
+ ITER = 2
+
+ time =    415.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.427E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.282E+03
+ Norm of the total energy : 0.430E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.229E+02
+ Norm of the total energy : 0.430E+05
+ Criterium of convergence  :0.000532
+ ITER = 2
+
+ time =    435.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.430E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.279E+04
+ Norm of the total energy : 0.458E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.642E+03
+ Norm of the total energy : 0.464E+05
+ Criterium of convergence  :0.013825
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.108E+04
+ Norm of the total energy : 0.475E+05
+ Criterium of convergence  :0.022750
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    425.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.430E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.250E+03
+ Norm of the total energy : 0.432E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.206E+02
+ Norm of the total energy : 0.432E+05
+ Criterium of convergence  :0.000476
+ ITER = 2
+
+ time =    435.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.432E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.242E+03
+ Norm of the total energy : 0.435E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.252E+02
+ Norm of the total energy : 0.435E+05
+ Criterium of convergence  :0.000579
+ ITER = 2
+
+ time =    445.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.435E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.259E+03
+ Norm of the total energy : 0.438E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.273E+02
+ Norm of the total energy : 0.438E+05
+ Criterium of convergence  :0.000623
+ ITER = 2
+
+ time =    465.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.438E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.359E+04
+ Norm of the total energy : 0.474E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.984E+03
+ Norm of the total energy : 0.484E+05
+ Criterium of convergence  :0.020347
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.624E+05
+ Norm of the total energy : 0.111E+06
+ Criterium of convergence  :0.563262
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    455.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.438E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.262E+03
+ Norm of the total energy : 0.441E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.327E+02
+ Norm of the total energy : 0.441E+05
+ Criterium of convergence  :0.000742
+ ITER = 2
+
+ time =    465.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.441E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.312E+03
+ Norm of the total energy : 0.444E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.415E+02
+ Norm of the total energy : 0.445E+05
+ Criterium of convergence  :0.000934
+ ITER = 2
+
+ time =    475.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.445E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.198E+05
+ Norm of the total energy : 0.642E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.511E+05
+ Norm of the total energy : 0.115E+06
+ Criterium of convergence  :0.443275
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.531E+06
+ Norm of the total energy : 0.647E+06
+ Criterium of convergence  :0.821702
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    470.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.445E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.125E+03
+ Norm of the total energy : 0.446E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.316E+02
+ Norm of the total energy : 0.446E+05
+ Criterium of convergence  :0.000708
+
+ time =    480.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.446E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.587E+03
+ Norm of the total energy : 0.452E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.917E+02
+ Norm of the total energy : 0.453E+05
+ Criterium of convergence  :0.002026
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.299E+02
+ Norm of the total energy : 0.453E+05
+ Criterium of convergence  :0.000661
+ ITER = 3
+
+ time =    490.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.453E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.129E+06
+ Norm of the total energy : 0.174E+06
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.240E+06
+ Norm of the total energy : 0.414E+06
+ Criterium of convergence  :0.579761
+ A displacement is too big.
+ 
+
+ time =    485.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.453E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.295E+05
+ Norm of the total energy : 0.748E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.856E+05
+ Norm of the total energy : 0.160E+06
+ Criterium of convergence  :0.533471
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.953E+06
+ Norm of the total energy : 0.111E+07
+ Criterium of convergence  :0.855944
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    482.50000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.453E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.559E+02
+ Norm of the total energy : 0.454E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.216E+02
+ Norm of the total energy : 0.454E+05
+ Criterium of convergence  :0.000476
+
+ time =    485.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.454E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.675E+02
+ Norm of the total energy : 0.455E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.189E+02
+ Norm of the total energy : 0.455E+05
+ Criterium of convergence  :0.000415
+
+ time =    487.50000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.455E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.490E+02
+ Norm of the total energy : 0.455E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.187E+02
+ Norm of the total energy : 0.455E+05
+ Criterium of convergence  :0.000410
+
+ time =    492.50000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.455E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.159E+03
+ Norm of the total energy : 0.457E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.409E+02
+ Norm of the total energy : 0.457E+05
+ Criterium of convergence  :0.000893
+ ITER = 2
+
+ time =    497.50000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.457E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.149E+03
+ Norm of the total energy : 0.459E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.434E+02
+ Norm of the total energy : 0.459E+05
+ Criterium of convergence  :0.000945
+
+ time =    502.50000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.459E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.232E+03
+ Norm of the total energy : 0.462E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.252E+03
+ Norm of the total energy : 0.464E+05
+ Criterium of convergence  :0.005435
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.180E+03
+ Norm of the total energy : 0.466E+05
+ Criterium of convergence  :0.003855
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    500.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.459E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.655E+02
+ Norm of the total energy : 0.460E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.292E+02
+ Norm of the total energy : 0.460E+05
+ Criterium of convergence  :0.000635
+
+ time =    505.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.460E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.214E+03
+ Norm of the total energy : 0.462E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.695E+02
+ Norm of the total energy : 0.463E+05
+ Criterium of convergence  :0.001501
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.949E+01
+ Norm of the total energy : 0.463E+05
+ Criterium of convergence  :0.000205
+ ITER = 3
+
+ time =    510.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.463E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.133E+03
+ Norm of the total energy : 0.465E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.596E+02
+ Norm of the total energy : 0.465E+05
+ Criterium of convergence  :0.001281
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.749E+01
+ Norm of the total energy : 0.465E+05
+ Criterium of convergence  :0.000161
+
+ time =    515.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.465E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.175E+05
+ Norm of the total energy : 0.640E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.478E+05
+ Norm of the total energy : 0.112E+06
+ Criterium of convergence  :0.427704
+ A displacement is too big.
+ 
+
+ time =    512.50000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.465E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.540E+02
+ Norm of the total energy : 0.466E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.317E+02
+ Norm of the total energy : 0.466E+05
+ Criterium of convergence  :0.000679
+
+ time =    515.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.466E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.960E+02
+ Norm of the total energy : 0.467E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.692E+02
+ Norm of the total energy : 0.468E+05
+ Criterium of convergence  :0.001479
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.120E+02
+ Norm of the total energy : 0.468E+05
+ Criterium of convergence  :0.000257
+ ITER = 3
+
+ time =    517.50000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.468E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.593E+02
+ Norm of the total energy : 0.468E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.376E+02
+ Norm of the total energy : 0.469E+05
+ Criterium of convergence  :0.000801
+
+ time =    520.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.469E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.643E+02
+ Norm of the total energy : 0.470E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.411E+02
+ Norm of the total energy : 0.470E+05
+ Criterium of convergence  :0.000874
+
+ time =    522.50000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.470E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.892E+02
+ Norm of the total energy : 0.471E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.498E+02
+ Norm of the total energy : 0.471E+05
+ Criterium of convergence  :0.001058
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.950E+01
+ Norm of the total energy : 0.471E+05
+ Criterium of convergence  :0.000201
+
+ time =    525.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.471E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.549E+04
+ Norm of the total energy : 0.526E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.411E+04
+ Norm of the total energy : 0.567E+05
+ Criterium of convergence  :0.072395
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.272E+05
+ Norm of the total energy : 0.839E+05
+ Criterium of convergence  :0.323784
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    523.75000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.471E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.292E+02
+ Norm of the total energy : 0.472E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.236E+02
+ Norm of the total energy : 0.472E+05
+ Criterium of convergence  :0.000499
+
+ time =    525.00000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.472E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.293E+02
+ Norm of the total energy : 0.472E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.250E+02
+ Norm of the total energy : 0.472E+05
+ Criterium of convergence  :0.000529
+ ITER = 2
+
+ time =    526.25000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.472E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.301E+02
+ Norm of the total energy : 0.473E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.259E+02
+ Norm of the total energy : 0.473E+05
+ Criterium of convergence  :0.000548
+
+ time =    528.75000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.473E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.644E+02
+ Norm of the total energy : 0.474E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.535E+02
+ Norm of the total energy : 0.474E+05
+ Criterium of convergence  :0.001129
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.283E+01
+ Norm of the total energy : 0.474E+05
+ Criterium of convergence  :0.000060
+
+ time =    531.25000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.474E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.852E+02
+ Norm of the total energy : 0.475E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.582E+02
+ Norm of the total energy : 0.476E+05
+ Criterium of convergence  :0.001224
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.423E+01
+ Norm of the total energy : 0.476E+05
+ Criterium of convergence  :0.000089
+
+ time =    533.75000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.476E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.686E+02
+ Norm of the total energy : 0.476E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.645E+02
+ Norm of the total energy : 0.477E+05
+ Criterium of convergence  :0.001352
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.252E+01
+ Norm of the total energy : 0.477E+05
+ Criterium of convergence  :0.000053
+
+ time =    536.25000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.477E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.956E+02
+ Norm of the total energy : 0.478E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.731E+02
+ Norm of the total energy : 0.479E+05
+ Criterium of convergence  :0.001527
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.371E+01
+ Norm of the total energy : 0.479E+05
+ Criterium of convergence  :0.000077
+ ITER = 3
+
+ time =    538.75000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.479E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.804E+02
+ Norm of the total energy : 0.480E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.840E+02
+ Norm of the total energy : 0.480E+05
+ Criterium of convergence  :0.001748
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.380E+01
+ Norm of the total energy : 0.480E+05
+ Criterium of convergence  :0.000079
+
+ time =    541.25000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.480E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.815E+02
+ Norm of the total energy : 0.481E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.937E+02
+ Norm of the total energy : 0.482E+05
+ Criterium of convergence  :0.001943
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.454E+01
+ Norm of the total energy : 0.482E+05
+ Criterium of convergence  :0.000094
+
+ time =    543.75000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.482E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.843E+02
+ Norm of the total energy : 0.483E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.104E+03
+ Norm of the total energy : 0.484E+05
+ Criterium of convergence  :0.002146
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.541E+01
+ Norm of the total energy : 0.484E+05
+ Criterium of convergence  :0.000112
+
+ time =    546.25000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.484E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.838E+02
+ Norm of the total energy : 0.485E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.114E+03
+ Norm of the total energy : 0.486E+05
+ Criterium of convergence  :0.002340
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.648E+01
+ Norm of the total energy : 0.486E+05
+ Criterium of convergence  :0.000133
+ ITER = 3
+
+ time =    548.75000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.486E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.849E+02
+ Norm of the total energy : 0.487E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.126E+03
+ Norm of the total energy : 0.488E+05
+ Criterium of convergence  :0.002574
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.787E+01
+ Norm of the total energy : 0.488E+05
+ Criterium of convergence  :0.000161
+
+ time =    551.25000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.488E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.869E+02
+ Norm of the total energy : 0.489E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.147E+03
+ Norm of the total energy : 0.491E+05
+ Criterium of convergence  :0.002991
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.106E+02
+ Norm of the total energy : 0.491E+05
+ Criterium of convergence  :0.000216
+
+ time =    553.75000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.491E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.915E+02
+ Norm of the total energy : 0.492E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.177E+03
+ Norm of the total energy : 0.494E+05
+ Criterium of convergence  :0.003582
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.167E+02
+ Norm of the total energy : 0.494E+05
+ Criterium of convergence  :0.000338
+
+ time =    556.25000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.494E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.100E+03
+ Norm of the total energy : 0.495E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.236E+03
+ Norm of the total energy : 0.497E+05
+ Criterium of convergence  :0.004744
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.425E+02
+ Norm of the total energy : 0.498E+05
+ Criterium of convergence  :0.000854
+ ITER = 3
+
+ time =    558.75000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.498E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.117E+03
+ Norm of the total energy : 0.499E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.428E+03
+ Norm of the total energy : 0.503E+05
+ Criterium of convergence  :0.008511
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.488E+03
+ Norm of the total energy : 0.508E+05
+ Criterium of convergence  :0.009602
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    557.50000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.498E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.575E+02
+ Norm of the total energy : 0.498E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.190E+03
+ Norm of the total energy : 0.500E+05
+ Criterium of convergence  :0.003791
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.539E+02
+ Norm of the total energy : 0.501E+05
+ Criterium of convergence  :0.001077
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    556.87500 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.498E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.313E+02
+ Norm of the total energy : 0.498E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.870E+02
+ Norm of the total energy : 0.499E+05
+ Criterium of convergence  :0.001745
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.106E+02
+ Norm of the total energy : 0.499E+05
+ Criterium of convergence  :0.000213
+
+ time =    557.50000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.499E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.354E+02
+ Norm of the total energy : 0.499E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.116E+03
+ Norm of the total energy : 0.500E+05
+ Criterium of convergence  :0.002313
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.235E+02
+ Norm of the total energy : 0.501E+05
+ Criterium of convergence  :0.000470
+
+ time =    558.12500 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.501E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.426E+02
+ Norm of the total energy : 0.501E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.197E+03
+ Norm of the total energy : 0.503E+05
+ Criterium of convergence  :0.003911
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.788E+02
+ Norm of the total energy : 0.504E+05
+ Criterium of convergence  :0.001564
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    557.81250 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.501E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.324E+02
+ Norm of the total energy : 0.501E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.783E+02
+ Norm of the total energy : 0.502E+05
+ Criterium of convergence  :0.001561
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.939E+01
+ Norm of the total energy : 0.502E+05
+ Criterium of convergence  :0.000187
+
+ time =    558.12500 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.502E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.441E+02
+ Norm of the total energy : 0.502E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.117E+03
+ Norm of the total energy : 0.503E+05
+ Criterium of convergence  :0.002321
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.164E+02
+ Norm of the total energy : 0.504E+05
+ Criterium of convergence  :0.000327
+
+ time =    558.43750 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.504E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.638E+02
+ Norm of the total energy : 0.504E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.204E+03
+ Norm of the total energy : 0.506E+05
+ Criterium of convergence  :0.004031
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.397E+02
+ Norm of the total energy : 0.507E+05
+ Criterium of convergence  :0.000784
+
+ time =    558.75000 sec.
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.000E+00
+ Norm of the total energy : 0.507E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.115E+03
+ Norm of the total energy : 0.508E+05
+ Criterium of convergence  :1.000000
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.473E+03
+ Norm of the total energy : 0.512E+05
+ Criterium of convergence  :0.009224
+   Going in BEAM elements
+
+ Norm of the incr. energy : 0.588E+02
+ Norm of the total energy : 0.513E+05
+ Criterium of convergence  :0.001146
+ Too many iterations would be required to converge.
+   Number of iterations (iter) :    4
+   Allowed (iter_to_decrease)  :    3
+
+
+ time =    558.59375 sec.
+   Going in BEAM elements

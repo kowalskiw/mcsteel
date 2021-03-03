@@ -1,0 +1,10 @@
+config_path = D:\symulacje\01_test-fdsafir\config
+results_path = D:\symulacje\01_test-fdsafir\results
+case_title = test
+safir_path = D:\SAFIR
+fire_type = alfat2_store
+miu = 0.7
+RSET = 250
+max_iterations = 1000
+stop_condition = rmse
+time_end = 1800

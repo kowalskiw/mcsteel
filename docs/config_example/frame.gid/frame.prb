@@ -26,7 +26,7 @@ QUESTION: Convergence#CB#(COMEBACK,NOCOMEBACK)
 VALUE: COMEBACK
 HELP: If NOCOMEBACK the simulation stopps the first time the stiffness matrix is notpositive definite.
 QUESTION: TIMESTEPMIN
-VALUE: 0.001
+VALUE: 0.000001
 HELP: Minimum value for the timestep in case of comeback only.
 QUESTION: Consider_max_displacement#CB#(yes,no)
 VALUE: no
@@ -39,13 +39,13 @@ QUESTION: PRECISION
 VALUE: 1.0e-3
 HELP: Small value that must be reached for convergence
 QUESTION: NGEOBEAM
-VALUE: 6
+VALUE: 4
 HELP: Number of different groups of geometrical properties. (One group of geometrical properties comprises elements that have the same materials, the same cross section and the same temperature history. One .TEM file will be necessary to describe each of the NGEOBEAM groups.)
 QUESTION: NG
 VALUE: 2
 HELP: Number of integration points for beams in longitudinal direction.
 QUESTION: NFIBERBEAM
-VALUE: 440
+VALUE: 262
 HELP: Max. number of longitudinal fibers in the beam elements
 QUESTION: NGEOTRUSS
 VALUE: 0
@@ -72,7 +72,7 @@ QUESTION: TIMEPRINT
 VALUE: 10
 TITLE: Output optional results
 QUESTION: PRINTTMPRT_Print_temperatures_in_the_fibers#CB#(yes,no)
-VALUE: yes
+VALUE: no
 QUESTION: PRINTVELAC_Print_velocity_and_acceleration#CB#(yes,no)
 VALUE: no
 QUESTION: PRINTREACT_Print_reactions#CB#(yes,no)
@@ -80,7 +80,7 @@ VALUE: yes
 QUESTION: PRINTMN_Print_internal_forces_of_beams#CB#(yes,no)
 VALUE: yes
 QUESTION: PRNEIBEAM_Print_stiffness_in_beams#CB#(yes,no)
-VALUE: yes
+VALUE: no
 QUESTION: PRINTSHELL_Print_stresses_in_shell_elements#CB#(yes,no)
 VALUE: no
 QUESTION: PRNNXSHELL_Print_membrane_forces_in_shell_elements#CB#(yes,no)
@@ -105,7 +105,7 @@ VALUE: safir.out
 HELP: File name where the information on the temperature distribution concerning the solid elements is read.
 TITLE: General
 QUESTION: Number_of_materials#CB#(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22)
-VALUE: 3
+VALUE: 2
 DEPENDENCIES: (1,TITLESTATE,Material2,hidden,TITLESTATE,Material3,hidden,TITLESTATE,Material4,hidden,TITLESTATE,Material5,hidden,TITLESTATE,Material6,hidden,TITLESTATE,Material7,hidden,TITLESTATE,Material8,hidden,TITLESTATE,Material9,hidden,TITLESTATE,Material10,hidden,TITLESTATE,Material11,hidden,TITLESTATE,Material12,hidden,TITLESTATE,Material13,hidden,TITLESTATE,Material14,hidden,TITLESTATE,Material15,hidden,TITLESTATE,Material16,hidden,TITLESTATE,Material17,hidden,TITLESTATE,Material18,hidden,TITLESTATE,Material19,hidden,TITLESTATE,Material20,hidden,TITLESTATE,Material21,hidden,TITLESTATE,Material22,hidden)
 DEPENDENCIES: (2,TITLESTATE,Material2,normal,TITLESTATE,Material3,hidden,TITLESTATE,Material4,hidden,TITLESTATE,Material5,hidden,TITLESTATE,Material6,hidden,TITLESTATE,Material7,hidden,TITLESTATE,Material8,hidden,TITLESTATE,Material9,hidden,TITLESTATE,Material10,hidden,TITLESTATE,Material11,hidden,TITLESTATE,Material12,hidden,TITLESTATE,Material13,hidden,TITLESTATE,Material14,hidden,TITLESTATE,Material15,hidden,TITLESTATE,Material16,hidden,TITLESTATE,Material17,hidden,TITLESTATE,Material18,hidden,TITLESTATE,Material19,hidden,TITLESTATE,Material20,hidden,TITLESTATE,Material21,hidden,TITLESTATE,Material22,hidden)
 DEPENDENCIES: (3,TITLESTATE,Material2,normal,TITLESTATE,Material3,normal,TITLESTATE,Material4,hidden,TITLESTATE,Material5,hidden,TITLESTATE,Material6,hidden,TITLESTATE,Material7,hidden,TITLESTATE,Material8,hidden,TITLESTATE,Material9,hidden,TITLESTATE,Material10,hidden,TITLESTATE,Material11,hidden,TITLESTATE,Material12,hidden,TITLESTATE,Material13,hidden,TITLESTATE,Material14,hidden,TITLESTATE,Material15,hidden,TITLESTATE,Material16,hidden,TITLESTATE,Material17,hidden,TITLESTATE,Material18,hidden,TITLESTATE,Material19,hidden,TITLESTATE,Material20,hidden,TITLESTATE,Material21,hidden,TITLESTATE,Material22,hidden)
@@ -175,7 +175,7 @@ VALUE: 2.1e11
 QUESTION: Mat1_Poisson_ratio
 VALUE: 0.3
 QUESTION: Mat1_Yield_strength
-VALUE: 2.35e8
+VALUE: 2.00e8
 QUESTION: Mat1_Compressive_strength
 VALUE: 3.0e7
 QUESTION: Mat1_Tension_strength
@@ -251,7 +251,7 @@ VALUE: 2.1e11
 QUESTION: Mat2_Poisson_ratio
 VALUE: 0.3
 QUESTION: Mat2_Yield_strength
-VALUE: 3.55e8
+VALUE: 2.50e8
 QUESTION: Mat2_Compressive_strength
 VALUE: 3.0e7
 QUESTION: Mat2_Tension_strength
@@ -327,7 +327,7 @@ VALUE: 2.1e11
 QUESTION: Mat3_Poisson_ratio
 VALUE: 0.3
 QUESTION: Mat3_Yield_strength
-VALUE: 4.20e8
+VALUE: 3.55e8
 QUESTION: Mat3_Compressive_strength
 VALUE: 3.0e7
 QUESTION: Mat3_Tension_strength
