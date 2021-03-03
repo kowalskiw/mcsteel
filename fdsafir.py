@@ -268,9 +268,10 @@ def run_safir(in_file, safir='C:\SAFIR', mcsteel=False):
     if mcsteel:
         chid = in_file.split('.')[0]
     else:
-        chdir('.\{}.gid'.format(in_file))
+        chid = in_file
+        chdir('.\{}.gid'.format(chid))
 
-    subprocess.call(' '.join([safir_path, '"{}"'.format(in_file)]), shell=True)
+    subprocess.call(' '.join([safir_path, '"{}"'.format(chid)]), shell=True)
 
     chdir('..') if not mcsteel else 0
 

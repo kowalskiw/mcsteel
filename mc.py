@@ -265,6 +265,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
             header = True
 
         df.to_csv(path, mode='a', header=header)
+        print('{} records written to {}_set.csv'.format(len(csvset), title))
 
     # create locafi.txt file
     def locafi(row, fire):
@@ -301,8 +302,8 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
         csvset.loc[i+1] = [simid_core+i+1, 'c', ctime(current_seconds())] + sing.generate(element_type='c') + fire[2:]
         locafi(csvset.loc[i + 1], fire[:2])    # generate locafi.txt
 
-        # write rows every 20 simulations
-        if i % 8 == 0:
+        # write rows every 8 records (4 fire scenarios)
+        if (i+2) % 8 == 0:
             df2csv(csvset)
             del csvset
             csvset = create_df()
@@ -312,6 +313,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
         df2csv(csvset)
         del csvset
     except ValueError:
+        print('No more data to be written')
         pass
 
     return 0

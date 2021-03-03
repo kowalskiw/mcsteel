@@ -1,4 +1,4 @@
-from os import listdir, chdir, getcwd
+from os import scandir, listdir, chdir, getcwd
 import numpy as np
 from pandas import read_csv, DataFrame
 from sys import argv
@@ -19,11 +19,10 @@ def linear_inter(point1, point2, x_i):
 class RunSim:
     # run SAFIR T2D
     def t2d(self, chid, safir_dir_path):
-        dir_content = listdir()
-        for i in dir_content:
-            if (not i.endswith('.in')) or i == '{}.in'.format(chid):
+        for i in scandir():
+            if (not i.name.endswith('.in')) or i.name == '{}.in'.format(chid):
                 continue
-            run_safir(i, safir=safir_dir_path, mcsteel=True)
+            run_safir(i.name, safir=safir_dir_path, mcsteel=True)
             break
 
     # calculate mean temperature of the profile return mean temp - time table
@@ -36,7 +35,6 @@ class RunSim:
             t = 0
             section_temp = []
 
-            print(getcwd())
             with open('b00001_{}.tem'.format(i)) as file:
                 tem = file.readlines()
 
@@ -94,6 +92,7 @@ class Queue:
             chid = str(row['ID'])
             # check if queue element is in results DF
             if (int(chid) in self.results_df.ID.tolist()) or (int(chid) in self.results_df.compared.tolist()):
+                print('Simulation {} has been already calculated. Continuing...')
                 continue
 
             # run simulation and add section temperature curve to the list
