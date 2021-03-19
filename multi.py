@@ -1,4 +1,4 @@
-from os import scandir, listdir, chdir, getcwd
+from os import scandir, listdir, chdir
 import numpy as np
 from pandas import read_csv, DataFrame
 from sys import argv
@@ -16,55 +16,60 @@ def linear_inter(point1, point2, x_i):
 '''Run single simulation'''
 
 
+# run SAFIR T2D
+def t2d(chid, safir_dir_path):
+    for i in scandir():
+        if (not i.name.endswith('.in')) or i.name == '{}.in'.format(chid):
+            continue
+        run_safir(i.name, safir=safir_dir_path, mcsteel=True)
+        break
+
+
+def mean_temp():
+    temp_table = []
+    nfiber = 0
+
+    for i in range(1, 3):
+        temp = 0
+        t = 0
+        section_temp = []
+
+        with open('b00001_{}.tem'.format(i)) as file:
+            tem = file.readlines()
+
+        for line in tem:
+            # set number of elements
+            if line.startswith('  NFIBERBEAM'):
+                nfiber = int(line.split()[1])
+
+            # set time step value and reset temperature
+            elif line.startswith(' TIME'):
+                temp = 0
+                t = float(line.split()[1])
+
+            # try to save previous step mean cross-section temperature
+            elif line.startswith('\n'):
+                try:
+                    section_temp.append([t, temp/nfiber])
+                except UnboundLocalError:
+                    pass
+
+            # add temperature in element in certain step
+            else:
+                try:
+                    temp += float(line.split()[-1])
+                except (IndexError, UnboundLocalError, ValueError):
+                    pass
+
+        temp_table.append(np.array(section_temp))
+
+    return (temp_table[0] + temp_table[1]) / 2
+
+
 class RunSim:
-    # run SAFIR T2D
-    def t2d(self, chid, safir_dir_path):
-        for i in scandir():
-            if (not i.name.endswith('.in')) or i.name == '{}.in'.format(chid):
-                continue
-            run_safir(i.name, safir=safir_dir_path, mcsteel=True)
-            break
 
     # calculate mean temperature of the profile return mean temp - time table
-    def mean_temp(self):
-        temp_table = []
-        nfiber = 0
-
-        for i in range(1, 3):
-            temp = 0
-            t = 0
-            section_temp = []
-
-            with open('b00001_{}.tem'.format(i)) as file:
-                tem = file.readlines()
-
-            for line in tem:
-                # set number of elements
-                if line.startswith('  NFIBERBEAM'):
-                    nfiber = int(line.split()[1])
-
-                # set time step value and reset temperature
-                elif line.startswith(' TIME'):
-                    temp = 0
-                    t = float(line.split()[1])
-
-                # try to save previous step mean cross-section temperature
-                elif line.startswith('\n'):
-                    try:
-                        section_temp.append([t, temp/nfiber])
-                    except UnboundLocalError:
-                        pass
-
-                # add temperature in element in certain step
-                else:
-                    try:
-                        temp += float(line.split()[-1])
-                    except (IndexError, UnboundLocalError, ValueError):
-                        pass
-
-            temp_table.append(np.array(section_temp))
-
-        return (temp_table[0] + temp_table[1]) / 2
+    pass
 
 
 '''Run node queue'''
@@ -98,8 +103,8 @@ class Queue:
             # run simulation and add section temperature curve to the list
             chdir(chid)
             print('Started {} calculations'.format(chid))
-            self.rs().t2d(chid, self.user['safir_path'])
-            results[chid] = self.rs().mean_temp()
+            t2d(chid, self.user['safir_path'])
+            results[chid] = mean_temp()
             chdir('..')
 
             # save results every 5 scenarios (10 sim)

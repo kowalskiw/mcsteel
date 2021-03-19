@@ -2,6 +2,7 @@ from numpy import random, pi
 from pandas import read_csv, merge, DataFrame
 from math import exp
 from steputils import p21
+from os import chdir, scandir
 
 
 # triangular distribution sampler
@@ -56,12 +57,12 @@ cwd == config_path'''
 class Fuel:
     def __init__(self, title):
         self.title = title
-        self.step = p21.readfile('{}.stp'.format(title))
+        self.layers = []
 
     # return points of the solid
-    def find_points(self, volume):
+    def find_points(self, volume, step):
         def params(ref, index=1):
-            par = self.step.get(ref).entity.params
+            par = step.get(ref).entity.params
 
             while '*' in par[index]:
                 index += 1
@@ -93,19 +94,16 @@ class Fuel:
         return points
 
     # return all volumes present in step file
-    def read_step(self):
-
+    def read_step(self, step):
         vols = []
-        layers = []
-        for i in self.step:
+
+        for i in step:
             if type(i) == p21.SimpleEntityInstance:
                 name = i.entity.name
                 if name == 'MANIFOLD_SOLID_BREP':    # find volumes
                     vols.append(i)
-                elif name == 'PRESENTATION_LAYER_ASSIGNMENT':            # find layers
-                    layers.append(i)
 
-        return vols, layers
+        return vols
 
     # return solid point entities in [[XA, XB], [YA, YB], [ZA, ZB]]format
     def pts2fds(self, pts):
@@ -141,10 +139,15 @@ class Fuel:
 
     def read_fuel(self):
         fuel = []
-        vols, lays = self.read_step()
-        for v in vols:
-            pts = self.find_points(v)
-            fuel.append([self.layer(v.ref, lays), self.pts2fds(pts)])
+        for lay in scandir():
+            splt = lay.name.split('.')
+            if splt[-1] == ('step' or 'stp'):
+                step = p21.readfile(lay.name)
+                vols = self.read_step(step)
+                for v in vols:
+                    print(v)
+                    pts = self.find_points(v, step)
+                    fuel.append([splt[0], self.pts2fds(pts)])
         # merge with .FUL config type
         return self.merge_data(fuel)
 
