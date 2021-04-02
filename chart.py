@@ -7,8 +7,8 @@ class Charting:
         self.results = data_frame
         self.t_crit = t_crit
         self.rset = rset
-        self.p_coll = probs[0]
-        self.p_evac = probs[1]
+        self.p_collapse = probs[0]
+        self.p_evacfailed = probs[1]
 
     # charts used for risk analysis
 
@@ -30,20 +30,21 @@ class Charting:
 
             plt.subplot(121)
             if type == 'cdf':
-                self.cdf(self.results.temp_max, self.t_crit, self.p_coll, 'Temperature [°C]', r'$\theta_{a,cr}$')
+                self.cdf(self.results.temp_max, self.t_crit, 1-self.p_collapse, 'Temperature [°C]', r'$\theta_{a,cr}$')
             elif type == 'pdf':
                 self.pdf(self.results.temp_max, self.t_crit, 'Temperature [°C]', r'$\theta_{a,cr}$')
 
             plt.subplot(122)
             if type == 'cdf':
-                self.cdf(self.results.time_crit[self.results.time_crit > 0], self.rset, self.p_evac, 'Time [s]', 'RSET')
+                self.cdf(self.results.time_crit[self.results.time_crit > 0], self.rset, self.p_evacfailed,
+                         'Time [s]', 'RSET')
             elif type == 'pdf':
                 self.pdf(self.results.time_crit[self.results.time_crit > 0], self.rset, 'Time [s]', 'RSET')
 
         except:
             plt.figure(figsize=(6, 4))
             if type == 'cdf':
-                self.cdf(self.results.temp_max, self.t_crit, self.p_coll, 'Temperature [°C]', r'$\theta_{a,cr}$')
+                self.cdf(self.results.temp_max, self.t_crit, self.p_collapse, 'Temperature [°C]', r'$\theta_{a,cr}$')
             elif type == 'pdf':
                 self.pdf(self.results.temp_max, self.t_crit, 'Temperature [°C]', r'$\theta_{a,cr}$')
 

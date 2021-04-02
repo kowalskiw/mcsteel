@@ -36,35 +36,36 @@ def summary(data, t_crit, rset):
 
     # calculating and writing exceeding critical temperature probability and uncertainty to the list
     try:
-        p_coll = len(data.temp_max[data.temp_max < int(t_crit)]) / len(data.temp_max)
-        save_list.append('P(collapse) = {}\n'.format(1 - p_coll))
+        p_collapse = len(data.temp_max[data.temp_max >= int(t_crit)]) / len(data.temp_max)
+        save_list.append('P(collapse) = {}\n'.format(p_collapse))
     except ZeroDivisionError:
         save_list.append('unable to calculate P(ASET<RSET) and RMSE\n')
-        p_coll = 0
-    err[0], save_list = uncertainty(save_list, p_coll, n_iter)
+        p_collapse = 0
+    err[0], save_list = uncertainty(save_list, p_collapse, n_iter)
 
     # calculating and writing ASET<RSET probability and uncertainty to the list
     try:
-        p_evac = (len(data.time_crit[data.time_crit <= int(rset)]) - num_nocoll) / (
+        p_evacfailed = (len(data.time_crit[data.time_crit <= int(rset)]) - num_nocoll) / (
                 len(data.time_crit) - num_nocoll)
-        save_list.append('P(ASET < RSET) = {}\n'.format(1 - p_evac))
+        save_list.append('P(ASET < RSET) = {}\n'.format(p_evacfailed))
     except ZeroDivisionError:
         save_list.append('unable to calculate P(ASET<RSET) and RMSE\n')
-        p_evac = 0
-    err[1], save_list = uncertainty(save_list, p_evac, n_iter)
+        p_evacfailed = 0
+    err[1], save_list = uncertainty(save_list, p_evacfailed, n_iter)
 
     with open('results.txt', 'w') as file:
         file.writelines(save_list)
 
     # draw charts
     print('temp_crit={}\nRSET={}'.format(t_crit, rset))
-    Charting(data, t_crit, rset, (p_coll, p_evac)).draw()
+    Charting(data, t_crit, rset, (p_collapse, p_evacfailed)).draw()
 
     # check if uncertainty is low enough to stop calculations
     if 0 < err[0] < 0.001 and 0 < err[1] < 0.001:
         return True
     else:
         return False
+
 
 def user_config(user_file):
     user = {}
