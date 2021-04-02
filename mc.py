@@ -11,19 +11,18 @@ from shutil import copyfile
 from sys import argv
 
 from fdsafir import Thermal, user_config
-from fires import f_localization, Properties
+from fires import f_localization, Properties, Fuel
 
 '''Read geometry and map it to the fire (choose the most exposed sections)'''
 
 
 class Single:
-    def __init__(self, title, t_end, fire_type, element_type='b'):
+    def __init__(self, title, fire_type, fire_coords):
         self.title = title     # simulation title
         self.f_type = fire_type    # type of fire
-        self.t_end = t_end      # simulation duration time
-        self.element_type = element_type  # 'b' - beam, 'c' - column
         self.prof_type = 'invalid profile type'     # type of steel profile
-        self.fire_properties = f_localization(title)[1]
+        self.fire_coords = fire_coords        # dummy fire coordinates
+        self.geometry = self.read_dxf()     # import geometry from DXF file
 
     # read dxf geometry
     def read_dxf(self):
@@ -54,7 +53,7 @@ class Single:
 
     # map fire and geometry - choose fire scenario
     def map(self, f_coords, elements, element):
-        # select the most exposed section among the lines and return its properties
+        # select the most exposed section among the lines and return its config
         def map_lines(lines):
             d = 1e9  # infinitely large number
             index = None
@@ -140,32 +139,36 @@ class Single:
         return mapped
 
     def generate(self, element_type='b'):
-        return list(self.map(self.fire_properties, self.read_dxf(), element=element_type))
+        return list(self.map(self.fire_coords, self.geometry, element=element_type))
 
 
 class Generator:
-    def __init__(self, t_end, title, fire_type):
+    def __init__(self, t_end, title, fire_type, fuelconfig='fuel&stp'):
         self.t_end = t_end      # simulation duration time
         self.title = title     # simulation title
         self.f_type = fire_type    # type of fire
+        if fuelconfig == 'fuel&stp':
+            self.fuel = Fuel(title).read_fuel()  # import fuel from config files
+        else:
+            self.fuel = rcsv('{}.ful'.format(title))
+        self.fire_props, self.fire_coords = f_localization(self.fuel)
 
-# import fire properties
+# import fire config
     def fire(self):
-
         # fire area is limited only by model limitation implemented to the fires.Properties
-        f = Properties(self.t_end)
+        f = Properties(self.t_end, self.fire_props)
         if self.f_type == 'alfat2':
-            f_hrr, f_diam, hrrpua, alpha = f.alfa_t2(self.title)
+            f_hrr, f_diam, hrrpua, alpha = f.alfa_t2()
         elif self.f_type == 'alfat2_store':
-            f_hrr, f_diam, hrrpua, alpha = f.alfa_t2(self.title, property='store')
+            f_hrr, f_diam, hrrpua, alpha = f.alfa_t2(property='store')
         elif self.f_type == 'sprink-eff':
-            f_hrr, f_diam, hrrpua, alpha = f.sprink_eff(self.title)
+            f_hrr, f_diam, hrrpua, alpha = f.sprink_eff()
         elif self.f_type == 'sprink-eff_store':
-            f_hrr, f_diam, hrrpua, alpha = f.sprink_eff(self.title, property='store')
+            f_hrr, f_diam, hrrpua, alpha = f.sprink_eff(property='store')
         elif self.f_type == 'sprink-noeff':
-            f_hrr, f_diam, hrrpua, alpha = f.sprink_noeff(self.title)
+            f_hrr, f_diam, hrrpua, alpha = f.sprink_noeff()
         elif self.f_type == 'sprink-noeff_store':
-            f_hrr, f_diam, hrrpua, alpha = f.sprink_noeff(self.title, property='store')
+            f_hrr, f_diam, hrrpua, alpha = f.sprink_noeff(property='store')
         else:
             raise KeyError('{} is not a proper fire type'.format(self.f_type))
 
@@ -197,8 +200,6 @@ class Generator:
 
 class MultiT2D:
     def __init__(self):
-        # directory == 'simulation/multit2d/chid'
-        # self.title = title
         pass
 
     def dummy(self, chid, section, unit_v):
@@ -286,12 +287,11 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
     csvset = create_df()
     df2csv(csvset)
     simid_core = int(current_seconds())
+    gen = Generator(t_end, title, fire_type)
+    sing = Single(title, fire_type, gen.fire_coords)
 
     # draw MC input samples
     for i in range(0, int(n)*2, 2):
-        sing = Single(title, t_end, fire_type)
-        gen = Generator(t_end, title, fire_type)
-
         fire = list(gen.fire())   # draw fire
 
         # draw localization of the most exposed beam

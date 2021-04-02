@@ -2,7 +2,7 @@ from numpy import random, pi
 from pandas import read_csv, merge, DataFrame
 from math import exp
 from steputils import p21
-from os import chdir, scandir
+from os import scandir
 
 
 # triangular distribution sampler
@@ -32,18 +32,14 @@ def mc_rand(csv):
 
 # drawn fire localization
 # cwd == confg_path
-def f_localization(title, config='fuel&stp'):
-    if config == 'fuel&stp':
-        ffile = Fuel(title).read_fuel()  # read FUL file
-    else:
-        ffile = read_csv('{}.ful'.format(title))
-    fire_site = mc_rand(ffile)  # generate fire coordinates from MC function
-    config = ffile.iloc[fire_site]  # information about chosen fuel site
-
+def f_localization(ffile):
     def random_position(xes, yes, zes):
         coordinates = []
         [coordinates.append(random.randint(int(10 * i[0]), int(10 * i[1])) / 10) for i in [xes, yes, zes]]
         return coordinates
+
+    fire_site = mc_rand(ffile)  # generate fire coordinates from MC function
+    config = ffile.iloc[fire_site]  # information about chosen fuel site
 
     return config, random_position((config.XA, config.XB), (config.YA, config.YB), zes=(config.ZA, config.ZB))
 
@@ -145,39 +141,38 @@ class Fuel:
                 step = p21.readfile(lay.name)
                 vols = self.read_step(step)
                 for v in vols:
-                    print(v)
                     pts = self.find_points(v, step)
                     fuel.append([splt[0], self.pts2fds(pts)])
         # merge with .FUL config type
         return self.merge_data(fuel)
 
 
-'''Draw fire properties from input distributions
+'''Draw fire config from input distributions
 operates on the fire types included in the class - to be changed'''
 
 
 class Properties:
-    def __init__(self, t_end):
+    def __init__(self, t_end, properties):
         self.t_end = t_end  # duration of simulation
         self.hrr_max = 3e8  # W model limitation of HRR
+        self.config = properties
 
-    def test_fire(self):
-        hrr = [0, 0, 15, 40]
-        area = 10
-        height = 0
-
-        return hrr, area, height
+    # def test_fire(self):
+    #     hrr = [0, 0, 15, 40]
+    #     area = 10
+    #     height = 0
+    #
+    #     return hrr, area, height
 
     # t-squared fire
-    def alfa_t2(self, name, property=None):
-        config = f_localization(name)[0]
+    def alfa_t2(self, property=None):
 
         # calculate HRRPUA according to triangular distribution specified by user
-        hrrpua = triangular(config.hrrpua_min, config.hrrpua_max, mode=config.hrrpua_mode)     # [kW/m2]
+        hrrpua = triangular(self.config.hrrpua_min, self.config.hrrpua_max, mode=self.config.hrrpua_mode)     # [kW/m2]
 
         # calculate ALPHA according to the experimental log-norm or user's triangular distribution
         if not property:
-            alpha = triangular(config.alpha_min, config.alpha_max, mode=config.alpha_mode)      # [kW/s2]
+            alpha = triangular(self.config.alpha_min, self.config.alpha_max, mode=self.config.alpha_mode)      # [kW/s2]
         elif property == 'store':
             alpha = hrrpua * random.lognormal(-9.72, 0.97)       # [kW/s2]
 
@@ -197,15 +192,14 @@ class Properties:
         return hrr_tab, diam_tab, hrrpua, alpha
 
     # curve taking non-effective sprinklers into account
-    def sprink_noeff(self, name, property=None):
-        config = f_localization(name)[0]
+    def sprink_noeff(self, property=None):
 
         # calculate HRRPUA according to triangular distribution specified by user
-        hrrpua = triangular(config.hrrpua_min, config.hrrpua_max, mode=config.hrrpua_mode)  # [kW/m2]
+        hrrpua = triangular(self.config.hrrpua_min, self.config.hrrpua_max, mode=self.config.hrrpua_mode)  # [kW/m2]
 
         # calculate ALPHA according to the experimental log-norm or user's triangular distribution
         if not property:
-            alpha = triangular(config.alpha_min, config.alpha_max, mode=config.alpha_mode)  # [kW/s2]
+            alpha = triangular(self.config.alpha_min, self.config.alpha_max, mode=self.config.alpha_mode)  # [kW/s2]
         elif property == 'store':
             alpha = hrrpua * random.lognormal(-9.72, 0.97)   # [kW/s2]
 
@@ -215,10 +209,10 @@ class Properties:
             t = int(self.t_end * i/98)
 
             # calculate HRR (steady-state after sprinklers activation), append
-            if t < config.t_sprink:
+            if t < self.config.t_sprink:
                 hrr_tab.append([t, round(alpha * (t ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
             else:
-                hrr_tab.append([t, round(alpha * (config.t_sprink ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
+                hrr_tab.append([t, round(alpha * (self.config.t_sprink ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
 
             if hrr_tab[-1][-1] > self.hrr_max:  # check if hrr_tab does not exceed model limitation
                 hrr_tab[-1][-1] = self.hrr_max
@@ -229,30 +223,29 @@ class Properties:
         return hrr_tab, diam_tab, hrrpua, alpha
 
     # curve taking effective sprinklers into account
-    def sprink_eff(self, name, property=None):
-        config = f_localization(name)[0]
+    def sprink_eff(self, property=None):
 
         # calculate HRRPUA according to triangular distribution specified by user
-        hrrpua = triangular(config.hrrpua_min, config.hrrpua_max, mode=config.hrrpua_mode)  # [kW]
+        hrrpua = triangular(self.config.hrrpua_min, self.config.hrrpua_max, mode=self.config.hrrpua_mode)  # [kW]
 
         # calculate ALPHA according to the experimental log-norm or user's triangular distribution
         if not property:
-            alpha = triangular(config.alpha_min, config.alpha_max, mode=config.alpha_mode)  # [kW/s2]
+            alpha = triangular(self.config.alpha_min, self.config.alpha_max, mode=self.config.alpha_mode)  # [kW/s2]
         elif property == 'store':
             alpha = hrrpua * random.lognormal(-9.72, 0.97)   # [kW/s2]
 
         hrr_tab = []
         diam_tab = []
-        q_0 = alpha * config.t_sprink ** 2 * 1000  # [W]
+        q_0 = alpha * self.config.t_sprink ** 2 * 1000  # [W]
         q_limit = round(0.15 * q_0)
         for i in range(0, 99):
             t = int(self.t_end * i/98)
 
             # calculate HRR (extinguishing phase after sprinklers activation), append
-            if t < config.t_sprink:
+            if t < self.config.t_sprink:
                 hrr_tab.append([t, round(alpha * (t ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
             else:
-                q = round(q_0 * exp(-0.0024339414 * (t - config.t_sprink)), 4)  # W
+                q = round(q_0 * exp(-0.0024339414 * (t - self.config.t_sprink)), 4)  # W
                 if q >= q_limit:
                     hrr_tab.append([t, q])  # [time /s/, HRR /W/]
                 else:
