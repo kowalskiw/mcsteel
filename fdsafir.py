@@ -305,12 +305,11 @@ def main(model, calc_type='s3dt2d', path='.'):
         chdir(wd)
 
 
-# cwd = worst\case
 def scripted(safir_path, config_path, results_path):
     for case in scandir('{}\worst'.format(results_path)):
         chdir(case.path)
 
-        # Thermal 2D analyses of profiles
+        # Thermal 2D analyses of profilessafi
         for i in scandir():
             f = i.name
             if f.endswith('.in') and not f == 'frame.in':
@@ -331,5 +330,14 @@ def scripted(safir_path, config_path, results_path):
 
 
 if __name__ == '__main__':
-    main(*argv[1:])
+    mode = int(input('Choose calculation mode - [1] for standalone fdsafir or [2] for scripted mode:\n'))
+    if mode == 1:
+        model = input('Choose model type [ISO] for standard fire curve or [LCF] - locafi fire calculation:\n')
+        calc_type = input('Choose what you want to calculate [t2d] for Safir Thermal 2D, [s3d] for Safir Structural 3D'
+                          'or [t2ds3d] for both:\n')
+        path = input('Give path to the simulation directory where .GID directories are stored:\n')
+        main(model, calc_type, path)
+    elif mode == 2:
+        paths = [input('safir_path = '), input('config_path = '), input('results_path = ')]
+        scripted(*paths)
 
