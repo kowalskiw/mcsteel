@@ -102,9 +102,12 @@ class Queue:
 
             # run simulation and add section temperature curve to the list
             chdir(chid)
-            print('Started {} calculations'.format(chid))
-            t2d(chid, self.user['safir_path'])
-            results[chid] = mean_temp()
+            if 'err' in listdir():
+                results[chid] = 20  # ambient temperature
+            else:
+                print('Started {} calculations'.format(chid))
+                t2d(chid, self.user['safir_path'])
+                results[chid] = mean_temp()
             chdir('..')
 
             # save results every 5 scenarios (10 sim)
@@ -123,22 +126,28 @@ class Queue:
 
         compared = []
         for k, v in tables.items():
-            temp_max = 0
-            upper_index = None
-
-            for step in v:
-                if step[1] > temp_max: temp_max = step[1]       # find max temperature
-                if step[1] > t_crit and not upper_index:  # find point, where theta_crit were exceeded
-                    upper_index = np.where(v == step)[0][0]
-
-            # try to interpolate
-            try:
-                pt1 = list(v[upper_index - 1])
-                pt2 = list(v[upper_index])
-                [i.reverse() for i in [pt1, pt2]]
-                time_crit = linear_inter(pt1, pt2, t_crit)
-            except TypeError:
+            # no element exception
+            if type(v) == int:
+                temp_max = v
                 time_crit = 0
+
+            else:
+                temp_max = 0
+                upper_index = None
+
+                for step in v:
+                    if step[1] > temp_max: temp_max = step[1]       # find max temperature
+                    if step[1] > t_crit and not upper_index:  # find point, where theta_crit were exceeded
+                        upper_index = np.where(v == step)[0][0]
+
+                # try to interpolate
+                try:
+                    pt1 = list(v[upper_index - 1])
+                    pt2 = list(v[upper_index])
+                    [i.reverse() for i in [pt1, pt2]]
+                    time_crit = linear_inter(pt1, pt2, t_crit)
+                except TypeError:
+                    time_crit = 0
 
             compared.append([str(k), temp_max, time_crit])
 

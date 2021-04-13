@@ -15,11 +15,9 @@ from fires import f_localization, Properties, Fuel
 
 
 class Single:
-    def __init__(self, title, fire_type, fire_coords):
+    def __init__(self, title):
         self.title = title     # simulation title
-        self.f_type = fire_type    # type of fire
         self.prof_type = 'invalid profile type'     # type of steel profile
-        self.fire_coords = fire_coords        # dummy fire coordinates
         self.geometry = self.read_dxf()     # import geometry from DXF file
 
     # read dxf geometry
@@ -51,8 +49,6 @@ class Single:
             pass
         [shells.append(dxf_to_list(s)) for s in msp.query('3DFACE')]
 
-        print(shells)
-
         print('[OK] DXF geometry imported')
 
         return beams, columns, shells
@@ -61,7 +57,11 @@ class Single:
     def map(self, f_coords, elements, element):
         # select the most exposed section among the lines and return its config
         def map_lines(lines):
-            d = 1e9  # infinitely large number
+            # no element exception
+            if len(lines) == 0:
+                return (*f_coords, None, None, None, None, shell_lvl, None, None, None, None)
+
+            d = 1e10  # infinitely large number
             index = None
 
             # return vectors for further calculations (line_start[0], line_end[1], fire[2], es[3], fs[4], fe[5], se[6])
@@ -110,10 +110,14 @@ class Single:
 
         # remove elements beneath the fire base or above shell level from the lines
         def cut_lines(lines):
-            for l in lines:
-                if l.dxf.start[2] > shell_lvl or l.dxf.end[2] < f_coords[2]:
-                    lines.remove(l)
-            return lines
+            lines_copied = lines.copy()
+            for i in range(len(lines_copied)):
+                l = lines[i]
+                for edge in (l.dxf.start, l.dxf.end):
+                    if edge[2] > shell_lvl or edge[2] < f_coords[2]:
+                        lines_copied.remove(l)
+                        break
+            return lines_copied
 
         # checking if point consists in polygon (XY plane only)
         def ray_tracing_method(point: iter, poly: list) -> bool:
@@ -139,7 +143,7 @@ class Single:
             return inside
 
         # import fire and structure data
-        beams, columns, shells = elements  # shells -> dict{Z_level:Plygon} | lines
+        beams, columns, shells = elements
         shell_lvl = 1e9     # infinitely large number
 
         # check for shell (plate, ceiling) existing above the fire assign the level if true
@@ -147,7 +151,7 @@ class Single:
             lvl = s[0][2]   # read level from first point of shell
             if float(f_coords[2]) <= lvl < shell_lvl and ray_tracing_method(f_coords, s):
                 shell_lvl = lvl
-        if shell_lvl == 1e6:  # set shell_lvl as -1 when there is no plate above the fire (besides compartment ceiling)
+        if shell_lvl == 1e9:  # set shell_lvl as -1 when there is no plate above the fire (besides compartment ceiling)
             shell_lvl = -1
 
         # initialize mapping
@@ -164,8 +168,8 @@ class Single:
         # unit vector))
         return mapped
 
-    def generate(self, element_type='b'):
-        return list(self.map(self.fire_coords, self.geometry, element=element_type))
+    def generate(self, fire_coord, element_type='b'):
+        return list(self.map(fire_coord, self.geometry, element=element_type))
 
 
 class Generator:
@@ -173,6 +177,7 @@ class Generator:
         self.t_end = t_end      # simulation duration time
         self.title = title     # simulation title
         self.f_type = fire_type    # type of fire
+        self.fire_coords = []   # to export to Single class
 
         print('Reading fuel configuration files...')
 
@@ -180,14 +185,14 @@ class Generator:
             self.fuel = Fuel(title).read_fuel()  # import fuel from config files
         else:
             self.fuel = rcsv('{}.ful'.format(title))
-        self.fire_props, self.fire_coords = f_localization(self.fuel)
 
         print('[OK] Fuel configuration files imported')
 
 # import fire config
     def fire(self):
         # fire area is limited only by model limitation implemented to the fires.Properties
-        f = Properties(self.t_end, self.fire_props)
+        fire_props, self.fire_coords = f_localization(self.fuel)
+        f = Properties(self.t_end, fire_props)
         if self.f_type == 'alfat2':
             f_hrr, f_diam, hrrpua, alpha = f.alfa_t2()
         elif self.f_type == 'alfat2_store':
@@ -203,7 +208,7 @@ class Generator:
         else:
             raise KeyError('{} is not a proper fire type'.format(self.f_type))
 
-        print('alpha={}\nHRRPUA={}'.format(alpha, hrrpua))
+        # print('alpha={}\nHRRPUA={}'.format(alpha, hrrpua))
 
         return f_hrr, f_diam, hrrpua, alpha
 
@@ -297,7 +302,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
             header = True
 
         df.to_csv(path, mode='a', header=header)
-        print('{} records written to {}_set.csv'.format(len(csvset), title))
+        return '{} records written to {}_set.csv'.format(len(csvset), title)
 
     # create locafi.txt file
     def locafi(row, fire):
@@ -318,36 +323,37 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
     csvset = create_df()
     df2csv(csvset)
     simid_core = int(current_seconds())
+    sing = Single(title)
     gen = Generator(t_end, title, fire_type)
-    sing = Single(title, fire_type, gen.fire_coords)
 
     # draw MC input samples
     for i in range(0, int(n)*2, 2):
         fire = list(gen.fire())   # draw fire
 
         # draw localization of the most exposed beam
-        csvset.loc[i] = [simid_core+i, 'b', ctime(current_seconds())] + sing.generate() + fire[2:]
+        csvset.loc[i] = [simid_core+i, 'b', ctime(current_seconds())] + sing.generate(gen.fire_coords) + fire[2:]
         locafi(csvset.loc[i], fire[:2])     # generate locafi.txt
 
         # draw localization of the most exposed column
-        csvset.loc[i+1] = [simid_core+i+1, 'c', ctime(current_seconds())] + sing.generate(element_type='c') + fire[2:]
+        csvset.loc[i+1] = [simid_core+i+1, 'c', ctime(current_seconds())] + sing.generate(gen.fire_coords,
+                                                                                          element_type='c') + fire[2:]
         locafi(csvset.loc[i + 1], fire[:2])    # generate locafi.txt
 
         # write rows every 8 records (4 fire scenarios)
         if (i+2) % 8 == 0:
-            df2csv(csvset)
+            print(df2csv(csvset))
             del csvset
             csvset = create_df()
 
     # write unwritten rows
     try:
-        df2csv(csvset)
+        print(df2csv(csvset))
         del csvset
     except ValueError:
         print('No more data to be written')
         pass
 
-    return 0
+    return 'Summary: {} scenarios (2 simulations each) generated'.format(int(n))
 
 
 # generate files for multisimulation
@@ -355,11 +361,14 @@ def generate_sim(data_path):
     chdir(config['results_path'])
     data_set = rcsv(data_path)
     for i, r in data_set.iterrows():
+        if r['profile'] != r['profile']:
+            open('{}\err'.format(r['ID']), 'w')
+            continue
         chdir(str(r['ID']))
         MultiT2D().prepare(r)
         chdir('..')
 
-    return 0
+    return '{} simulation inputs were created'.format(len(data_set.index))
 
 
 if __name__ == '__main__':
@@ -371,6 +380,6 @@ if __name__ == '__main__':
 
     chdir(config['config_path'])    # change to config
 
-    generate_set(config['max_iterations'], config['case_title'], config['time_end'], config['fire_type'],
-                 config['config_path'], config['results_path'])
-    generate_sim('{}\{}_set.csv'.format(config['results_path'], config['case_title']))
+    # print(generate_set(config['max_iterations'], config['case_title'], config['time_end'], config['fire_type'],
+    #              config['config_path'], config['results_path']))
+    print(generate_sim('{}\{}_set.csv'.format(config['results_path'], config['case_title'])))
