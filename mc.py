@@ -2,14 +2,12 @@ from time import time as current_seconds
 from time import ctime
 import numpy as np
 import ezdxf
-import shapely.geometry as sh
 from pandas import DataFrame as df
 from pandas import read_csv as rcsv
 import core
 from os import mkdir, chdir
 from shutil import copyfile
 from sys import argv
-
 from fdsafir import Thermal, user_config
 from fires import f_localization, Properties, Fuel
 
@@ -26,16 +24,18 @@ class Single:
 
     # read dxf geometry
     def read_dxf(self):
-        def dxf_to_shapely(dxfshells):    # convert shells to shapely objects
-            shshells = []
-
-            for s in dxfshells:
-                shshell = sh.Polygon([s[0], s[1], s[2], s[3]])
-                shshells.append(shshell)
-
-            return shshells
+        def dxf_to_list(dxfshell: ezdxf.entities.solid.Face3d) -> list:
+            nodes = []
+            i = 0
+            try:
+                while True:
+                    nodes.append(tuple([dxfshell[i][j] for j in range(3)]))
+                    i += 1
+            except IndexError:
+                return nodes
 
         dxffile = ezdxf.readfile('{}.dxf'.format(self.title))
+        print('Reading DXF geometry...')
         msp = dxffile.modelspace()
         columns = []
         beams = []
@@ -47,9 +47,15 @@ class Single:
 
         # assign 3DFACE elements to shells table
         shells = []
-        [shells.append(s) for s in msp.query('3DFACE')]
+        for s in msp.query('3DFACE'):
+            pass
+        [shells.append(dxf_to_list(s)) for s in msp.query('3DFACE')]
 
-        return beams, columns, dxf_to_shapely(shells)
+        print(shells)
+
+        print('[OK] DXF geometry imported')
+
+        return beams, columns, shells
 
     # map fire and geometry - choose fire scenario
     def map(self, f_coords, elements, element):
@@ -67,7 +73,7 @@ class Single:
 
                 return l_start, l_end, fire, l_end - l_start, fire - l_start, fire - l_end, l_start - l_end
 
-            # iterate over lines to select the closest to the fire one
+            # iterate over lines to select the closest to the fire
             for l in lines:
                 v = vectors(l)
 
@@ -98,11 +104,9 @@ class Single:
                 else:
                     section[-1] = max([v[1][-1], v[0][-1]])
 
-            # fire_relative = section - fire  # calculate fire-section vector
-
             # fire coords(list), section coords(list), length of the fire-section vector(float),
             # level of shell above the fire(float), profile(string), unit vector
-            return (*tuple(*fire.coords), *section, d, shell_lvl, lines[index].dxf.layer, *unit_v)
+            return (*f_coords, *section, d, shell_lvl, lines[index].dxf.layer, *unit_v)
 
         # remove elements beneath the fire base or above shell level from the lines
         def cut_lines(lines):
@@ -111,15 +115,37 @@ class Single:
                     lines.remove(l)
             return lines
 
+        # checking if point consists in polygon (XY plane only)
+        def ray_tracing_method(point: iter, poly: list) -> bool:
+            n = len(poly)
+            inside = False
+            x = point[0]
+            y = point[1]
+
+            p1x = poly[0][0]
+            p1y = poly[0][1]
+            for i in range(n + 1):
+                p2x = poly[i % n][0]
+                p2y = poly[i % n][1]
+                if y > min(p1y, p2y):
+                    if y <= max(p1y, p2y):
+                        if x <= max(p1x, p2x):
+                            if p1y != p2y:
+                                xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                            if p1x == p2x or x <= xints:
+                                inside = not inside
+                p1x, p1y = p2x, p2y
+
+            return inside
+
         # import fire and structure data
         beams, columns, shells = elements  # shells -> dict{Z_level:Plygon} | lines
-        fire = sh.Point(list(f_coords))  # shapely does not support the 3D objects - z coordinate is not used
         shell_lvl = 1e9     # infinitely large number
 
         # check for shell (plate, ceiling) existing above the fire assign the level if true
-        for poly in shells:
-            lvl = float(poly.wkt.split()[-1][:-2])
-            if float(f_coords[2]) <= lvl < shell_lvl and poly.contains(fire):
+        for s in shells:
+            lvl = s[0][2]   # read level from first point of shell
+            if float(f_coords[2]) <= lvl < shell_lvl and ray_tracing_method(f_coords, s):
                 shell_lvl = lvl
         if shell_lvl == 1e6:  # set shell_lvl as -1 when there is no plate above the fire (besides compartment ceiling)
             shell_lvl = -1
@@ -130,7 +156,7 @@ class Single:
         elif element == 'c':  # cut columns accordingly to Z in (fire_z - shell_lvl) range and map to relative
             mapped = map_lines(cut_lines(columns))
         else:
-            raise ValueError('{} is not a proper element type'.format(element))
+            raise ValueError('{} is not a proper element type (\'b\' or \'c\' required)'.format(element))
 
         self.prof_type = mapped[3]
 
@@ -147,11 +173,16 @@ class Generator:
         self.t_end = t_end      # simulation duration time
         self.title = title     # simulation title
         self.f_type = fire_type    # type of fire
+
+        print('Reading fuel configuration files...')
+
         if fuelconfig == 'fuel&stp':
             self.fuel = Fuel(title).read_fuel()  # import fuel from config files
         else:
             self.fuel = rcsv('{}.ful'.format(title))
         self.fire_props, self.fire_coords = f_localization(self.fuel)
+
+        print('[OK] Fuel configuration files imported')
 
 # import fire config
     def fire(self):
