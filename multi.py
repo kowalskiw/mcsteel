@@ -25,7 +25,7 @@ def t2d(chid, safir_dir_path):
         break
 
 
-def mean_temp():
+def mean_temp(amb_temp):
     temp_table = []
     nfiber = 0
 
@@ -57,7 +57,12 @@ def mean_temp():
             # add temperature in element in certain step
             else:
                 try:
-                    temp += float(line.split()[-1])
+                    fiber_temp = float(line.split()[-1])
+                    if fiber_temp >= amb_temp:
+                        temp += fiber_temp
+                    else:
+                        raise ImportError('Fiber temperature is lower then ambient ({} °C < {} °C)'.format(fiber_temp,
+                                                                                                           amb_temp))
                 except (IndexError, UnboundLocalError, ValueError):
                     pass
 
@@ -92,7 +97,10 @@ class Queue:
 
     # run simulation queue
     def run(self):
+        ambient_temperature = 20
         results = {}
+        errors = ['ID,error_type']
+
         for index, row in self.set.iterrows():
             chid = str(row['ID'])
             # check if queue element is in results DF
@@ -103,17 +111,24 @@ class Queue:
             # run simulation and add section temperature curve to the list
             chdir(chid)
             if 'err' in listdir():
-                results[chid] = 20  # ambient temperature
+                results[chid] = ambient_temperature  # ambient temperature
             else:
                 print('Started {} calculations'.format(chid))
                 t2d(chid, self.user['safir_path'])
-                results[chid] = mean_temp()
+                try:
+                    results[chid] = mean_temp(ambient_temperature)
+                except ImportError:
+                    errors.append('{},FibreTemperatureError')
             chdir('..')
 
             # save results every 5 scenarios (10 sim)
             if (index+1) % 8 == 0:
                 self.save_res(results, export.temp_crit(self.user['miu']))
                 results.clear()
+
+            # save errors
+            with open('{}\err.csv'.format(self.user['results_path']), 'w+') as file:
+                file.writelines(errors)
 
         return [self.save_res(results, export.temp_crit(self.user['miu'])) if results else -1]
 
