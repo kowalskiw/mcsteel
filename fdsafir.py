@@ -45,18 +45,18 @@ def sections(frame):
 
 
 class Thermal:
-    def __init__(self, chid, model, frame_chid='default', profile_pth='default'):
-        self.chid = chid
+    def __init__(self, chid: str, model: str, frame_chid: str = 'default', profile_pth: str = 'default'):
+        self.chid = ''.join(chid.split('.')[:-1]) if chid.endswith('.in') or chid.endswith('.gid') else chid
         self.model = model
         self.path = getcwd()
 
         if frame_chid == 'default':
-            self.frame = 'frame'
+            self.frame = '{0}.gid\{0}'.format('frame')
         else:
             self.frame = frame_chid
 
         if profile_pth == 'default':
-            self.profile_pth = '{0}\{1}.gid\{1}.in'.format(getcwd(), self.chid)
+            self.profile_pth = '{0}\{1}.gid\{1}.in'.format(self.path, self.chid)
             self.alias = self.chid
         else:
             self.profile_pth = profile_pth
@@ -130,11 +130,10 @@ class Thermal:
         copyfile('{0}.gid\{0}.in'.format('frame'), '{}\{}.gid\{}.in'.format(self.path, self.chid, 'frame'))
 
         if self.model == 'CFD':
-            copyfile('cfd.txt', '{}.gid\locafi.txt'.format(self.chid))
+            copyfile('cfd.txt', '{}.gid\cfd.txt'.format(self.chid))
         elif self.model == 'LCF':
             copyfile('locafi.txt', '{}.gid\locafi.txt'.format(self.chid))
 
-# dodaj first_b dla scripted
     # adding torsion analysis results to first TEM file
     def insert_tor(self, config_path='.'):
         # chdir('{}\{}.gid'.format(self.path, self.chid))
@@ -152,7 +151,7 @@ class Thermal:
                     print(first_b)
         # check if torsion results already are in TEM file
         try:
-            with open(first_b) as file:
+            with open('{}\{}.gid\{}'.format(self.path, self.chid, first_b)) as file:
                 tem = file.readlines()
             if '         w\n' in tem:
                 # chdir('..')
@@ -179,7 +178,7 @@ class Thermal:
                 raise ValueError("Flux constraint information not found in the TEM")
 
             # pasting torsion results
-            with open(first_b, 'w') as file:
+            with open('{}\{}.gid\{}'.format(self.path, self.chid, first_b), 'w') as file:
                 file.writelines(tem[:tem_index] + tor[tor_index:-1] + tem[tem_index:])
             # chdir('..')
             print('Torsion results copied to the TEM')
@@ -190,7 +189,7 @@ class Thermal:
             raise FileNotFoundError('There is no proper TEM file in {}'.format(getcwd()))
 
         except UnboundLocalError:
-            print('The {} profile is not used in the structure'.format(self.chid))
+            print('The {} profile is not found in the Structural 3D .IN file'.format(self.chid))
             return -1
 
     # running single SAFIR simulation
@@ -217,7 +216,7 @@ class Thermal:
 
 
 class Mechanical:
-    def __init__(self, t2Ds, model, frame_pth='frame.gid/frame.in'):
+    def __init__(self, t2Ds, model, frame_pth='frame.gid/frame'):
         self.model = model  # ISO/other
         self.t2Ds = t2Ds
         self.frame = frame_pth
@@ -277,6 +276,9 @@ def run_safir(in_file, safir='C:\SAFIR', mcsteel=False):
 
 
 def main(model, calc_type='s3dt2d', path='.'):
+    model = model.upper()
+    calc_type = calc_type.lower()
+
     wd = getcwd()
     if path != wd:
         chdir(path)
@@ -314,7 +316,7 @@ def scripted(safir_path, config_path, results_path):
             f = i.name
             if f.endswith('.in') and not f == 'frame.in':
                 chid = f[:-3]
-                t = Thermal(chid, 'LCF', profile_pth=f)
+                t = Thermal(f, 'LCF', frame_chid='frame', profile_pth=f)
                 t.alias = chid
                 t.change_in()
                 run_safir(chid, safir_path, mcsteel=True)
@@ -330,14 +332,13 @@ def scripted(safir_path, config_path, results_path):
 
 
 if __name__ == '__main__':
-    mode = int(input('Choose calculation mode - [1] for standalone fdsafir or [2] for scripted mode:\n'))
-    if mode == 1:
-        model = input('Choose model type [ISO] for standard fire curve or [LCF] - locafi fire calculation:\n')
-        calc_type = input('Choose what you want to calculate [t2d] for Safir Thermal 2D, [s3d] for Safir Structural 3D'
-                          'or [t2ds3d] for both:\n')
-        path = input('Give path to the simulation directory where .GID directories are stored:\n')
-        main(model, calc_type, path)
-    elif mode == 2:
+    model = argv[1]
+    if model == ('-s' or '--scripted'):
+        print('=== ATTENTION! ===\nYou have entered scripted mode. It is designed to support developers - be careful,'
+              'things don\'t work here well ;-)\n==================\n')
         paths = [input('safir_path = '), input('config_path = '), input('results_path = ')]
         scripted(*paths)
-
+    else:
+        calc_type = argv[2]
+        path = argv[3]
+        main(model, calc_type, path)
