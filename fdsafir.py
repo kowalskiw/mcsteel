@@ -114,6 +114,10 @@ class Thermal:
                         init.insert(n + 1, 'NO'.join(l.split('FISO')))
                 # elif self.model == 'HSM':
                 #     init[n] = 'FLUX {}'.format('HSM'.join(l.split('FISO')[1:]))
+            
+            #change convective heat transfer coefficient of steel to 35 in locafi mode
+            elif self.model == 'LCF' and l.startswith('STEEL'):
+                init[n + 1] = '{}'.format('35'.join(init[n + 1].split('25')))
 
         # write changed file
         with open(self.profile_pth, 'w') as file:
