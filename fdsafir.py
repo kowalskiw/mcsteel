@@ -2,6 +2,16 @@ from os import getcwd, listdir, chdir, scandir
 import subprocess
 from shutil import copyfile
 from sys import argv
+from time import sleep
+from sys import stdout
+
+
+def animated_loading():
+    chars = '/—\|'
+    for char in chars:
+        stdout.write('\r'+'loading...'+char)
+        sleep(.1)
+        stdout.flush()
 
 
 # return user configuration directory
@@ -145,24 +155,22 @@ class Thermal:
             first_b = self.chid + '.tem'
         else:
             for v in self.sections.values():
-                print(v[0][:-4], self.chid, v[0][:-4] == self.chid)
                 if v[0][:-4] == self.chid:
                     first_b = v[-1]
-                    print(first_b)
         # check if torsion results already are in TEM file
         try:
             with open('{}\{}.gid\{}'.format(self.path, self.chid, first_b)) as file:
                 tem = file.readlines()
             if '         w\n' in tem:
                 # chdir('..')
-                print('Torsion results are already copied to the TEM')
+                print('[OK] Torsion results are already copied to the TEM')
                 return 0
 
             # looking for start of torsion results regexp in TEM file
             try:
                 tor_index = tor.index('         w\n')
             except ValueError:
-                raise ValueError("Torsion results not found in the TOR")
+                raise ValueError('[ERROR] Torsion results not found in the TOR')
 
             # find TEM line where torsion results should be passed
             try:
@@ -175,21 +183,21 @@ class Thermal:
                 # elif self.model == 'HSM':
                 #     tem_index = tem.tem_index('       HSM\n')   # if model == HSM
             except ValueError:
-                raise ValueError("Flux constraint information not found in the TEM")
+                raise ValueError('[ERROR] Flux constraint data not found in TEM file')
 
             # pasting torsion results
             with open('{}\{}.gid\{}'.format(self.path, self.chid, first_b), 'w') as file:
                 file.writelines(tem[:tem_index] + tor[tor_index:-1] + tem[tem_index:])
             # chdir('..')
-            print('Torsion results copied to the TEM')
+            print('[OK] Torsion results copied to the TEM')
 
             return 0
 
         except FileNotFoundError:
-            raise FileNotFoundError('There is no proper TEM file in {}'.format(getcwd()))
+            raise FileNotFoundError('[ERROR] There is no proper TEM file in {}'.format(getcwd()))
 
         except UnboundLocalError:
-            print('The {} profile is not found in the Structural 3D .IN file'.format(self.chid))
+            print('[WARNING] The {} profile is not found in the Structural 3D .IN file'.format(self.chid))
             return -1
 
     # running single SAFIR simulation
@@ -198,7 +206,7 @@ class Thermal:
         if self.model == 'ISO':
             run_safir(self.chid)
             self.insert_tor()
-            print('\nISO-curve {} thermal 2D analysis finished\n\n'.format(self.chid))
+            print('\n[OK] ISO-curve {} thermal 2D analysis finished\n\n'.format(self.chid))
 
         # natural fire
         else:
@@ -207,9 +215,9 @@ class Thermal:
                 self.change_in()
                 run_safir(self.chid)
                 self.insert_tor()
-                print('\n{}-data {} Thermal 2D analysis finished\n\n'.format(self.model, self.chid))
+                print('\n[OK] {}-data {} Thermal 2D analysis finished\n\n'.format(self.model, self.chid))
             except ValueError:
-                raise ValueError("change_in not possible")
+                raise ValueError('[ERROR] change_in not possible')
 
 
 '''Safir_structural3D analyses'''
@@ -250,14 +258,14 @@ class Mechanical:
         if self.model == 'ISO':
             self.copy_tems()
             run_safir('frame')
-            print('\nISO-curve Structural 3D analysis finished\n\n')
+            print('\n[OK] ISO-curve Structural 3D analysis finished\n\n')
 
         # natural fire
         else:
             self.change_in()
             self.copy_tems()
             run_safir('frame')
-            print('\nNatural fire Structural 3D analysis finished\n\n')
+            print('\n [OK] Natural fire Structural 3D analysis finished\n\n')
 
 
 # running SAFIR simulation in shell
@@ -270,7 +278,20 @@ def run_safir(in_file, safir='C:\SAFIR', mcsteel=False):
         chid = in_file
         chdir('.\{}.gid'.format(chid))
 
-    subprocess.call(' '.join([safir_path, '"{}"'.format(chid)]), shell=True)
+    print('SAFIR started {} calculations...'.format(chid))
+    output = subprocess.check_output(' '.join([safir_path, '"{}"'.format(chid)]), universal_newlines=True)
+
+    # check for errors in output:
+    try:
+        err_text = output.split('ERROR')[1]
+        with open('{}.err'.format(chid), 'w') as err:
+            mess = '[ERROR] FatalSafirError: Simulation {} \n{}\nScenario passed, simulations saved to \'err.csv\',' \
+                   ' continuing...'.format(chid, err_text)
+            err.write(mess)
+        print(mess)
+
+    except IndexError:
+        print('[OK] SAFIR finished {} calculations'.format(chid))
 
     chdir('..') if not mcsteel else 0
 
@@ -301,7 +322,7 @@ def main(model, calc_type='s3dt2d', path='.'):
     if model == 'LCF' and 's3d' in calc_type:
         Mechanical(folders, 'NF').run()  # frame structural analysis - natural fire
 
-    print('\nAll SAFIR calculations finished, well done engineer!\n\n')
+    print('\n[OK] All SAFIR calculations finished, well done engineer!\n\n')
 
     if path != wd:
         chdir(wd)
@@ -328,7 +349,7 @@ def scripted(safir_path, config_path, results_path):
         m.change_in()
         run_safir('frame', safir_path, mcsteel=True)
 
-        print('\n{} case calculations finished!\n\n'.format(case.name))
+        print('\n[OK] {} scenario calculations finished!\n\n'.format(case.name))
 
 
 if __name__ == '__main__':

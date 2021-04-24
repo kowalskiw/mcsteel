@@ -1,11 +1,24 @@
 from os import scandir, listdir, chdir
 import numpy as np
 from pandas import read_csv, DataFrame
-from sys import argv
+import sys
 import export
 from pandas.errors import EmptyDataError
 
 from fdsafir import run_safir, user_config
+
+
+class Logger(object):
+    def __init__(self):
+        self.terminal = sys.stdout
+        self.log = open('multi.log', 'w')
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        pass
 
 
 # linear interpolation between two points with given first coordinate x_i, returns y_i
@@ -61,8 +74,9 @@ def mean_temp(amb_temp):
                     if fiber_temp >= amb_temp:
                         temp += fiber_temp
                     else:
-                        raise ImportError('Fiber temperature is lower then ambient ({} °C < {} °C)'.format(fiber_temp,
-                                                                                                           amb_temp))
+                        print('[WARNING] SafirError: Fiber temperature is lower than ambient ({} °C < {} °C)'.format(
+                            fiber_temp, amb_temp))
+                        raise ChildProcessError
                 except (IndexError, UnboundLocalError, ValueError):
                     pass
 
@@ -90,54 +104,17 @@ class Queue:
             try:
                 del self.results_df['Unnamed: 0']  # error in importing via rcsv
             except:
-                print('nie usunieto unnamed')
+                pass
         except (FileNotFoundError, EmptyDataError):
             self.results_df = DataFrame(columns=['ID', 'temp_max', 'time_crit', 'compared'])
         self.rs = RunSim
-
-    # run simulation queue
-    def run(self):
-        ambient_temperature = 20
-        results = {}
-        errors = ['ID,error_type']
-
-        for index, row in self.set.iterrows():
-            chid = str(row['ID'])
-            # check if queue element is in results DF
-            if (int(chid) in self.results_df.ID.tolist()) or (int(chid) in self.results_df.compared.tolist()):
-                print('Simulation {} has been already calculated. Continuing...')
-                continue
-
-            # run simulation and add section temperature curve to the list
-            chdir(chid)
-            if 'err' in listdir():
-                results[chid] = ambient_temperature  # ambient temperature
-            else:
-                print('Started {} calculations'.format(chid))
-                t2d(chid, self.user['safir_path'])
-                try:
-                    results[chid] = mean_temp(ambient_temperature)
-                except ImportError:
-                    errors.append('{},FibreTemperatureError')
-            chdir('..')
-
-            # save results every 5 scenarios (10 sim)
-            if (index+1) % 8 == 0:
-                self.save_res(results, export.temp_crit(self.user['miu']))
-                results.clear()
-
-            # save errors
-            with open('{}\err.csv'.format(self.user['results_path']), 'w+') as file:
-                file.writelines(errors)
-
-        return [self.save_res(results, export.temp_crit(self.user['miu'])) if results else -1]
 
     # choose theta_a,max and t_theta,a,cr and add those values to case.res
     def save_res(self, tables, t_crit):
         path_to_res = '{}_results.csv'.format(self.user['case_title'])
         if path_to_res not in listdir('.'):
             with open(path_to_res, 'w+'):
-                print('{} created'.format(path_to_res))
+                print('[OK] {} results file created'.format(path_to_res))
 
         compared = []
         for k, v in tables.items():
@@ -168,19 +145,18 @@ class Queue:
 
             # compare beam with column scenario
             if len(compared) == 2:
-                print(compared)
                 # smaller time_crit except 0
                 if compared[0][2] + compared[1][2] > 0 and compared[0][2] < compared[1][2]:
                     comp_id = compared.pop(0)[0]
-                    print('usunieta belka')
+                    print('    {}: Temperature in column scenario is higher -> added to results'.format(comp_id))
 
                 elif compared[0][1] > compared[1][1]:   # bigger temp_max
                     comp_id = compared.pop(0)[0]
-                    print('usunieta belka')
+                    print('    {}: Temperature in column scenario is higher -> added to results'.format(comp_id))
 
                 else:
                     comp_id = compared.pop(1)[0]
-                    print('usunieta kolumna')
+                    print('    {}: Temperature in beam scenario is higher -> added to results'.format(comp_id))
 
                 self.results_df.loc[len(self.results_df)] = compared[0] + [comp_id]   # save results to the Data Frame
                 compared = []
@@ -194,6 +170,85 @@ class Queue:
         # self.results_df = self.results_df.iloc[0:0]
 
         return 0
+
+    # run simulation queue
+    def run(self):
+        ambient_temperature = 20
+        results = {}
+        errors = ['ID,error_type\n']
+
+        def remove_err(id: str, error_type: str):
+            iid = int(id)
+            if iid % 2 == 1:
+                print(results)
+                try:
+                    results.pop(str(iid - 1))
+                    errors.append('{},{}\n'.format(iid - 1, error_type))
+                except KeyError:
+                    print('{} not found in results'.format(iid - 1))
+                errors.append('{},{}\n'.format(id, error_type))
+            else:
+                errors.append('{},{}\n'.format(id, error_type))
+                errors.append('{},{}\n'.format(iid + 1, error_type))
+
+        print('Multisimulating started...')
+
+        for index, row in self.set.iterrows():
+            chid = str(row['ID'])
+            # check if queue element is in results DF
+            if (int(chid) in self.results_df.ID.tolist()) or (int(chid) in self.results_df.compared.tolist()):
+                print('    Simulation {} has been already calculated. Continuing...'.format(chid))
+                continue
+
+            print('\nScenario {} calculations started...'.format(chid))
+
+            # check if simulation is a part of error scenario
+            try:
+                for e in errors:
+                    esplt = e.split(',')
+                    if esplt[0] == chid:
+                        print('[ERROR] Scenario {} is affected by {}'.format(chid, esplt[1][:-1]))
+                        raise AttributeError
+            except AttributeError:
+                continue
+
+            # run simulation and add section temperature curve to the list
+            chdir(chid)
+            dirs = listdir()
+
+            # ElementNotFoundError
+            if '{}.err'.format(chid) in dirs:
+                results[chid] = ambient_temperature
+                print('[OK] {} calculations finished'.format(chid))
+
+            else:
+                t2d(chid, self.user['safir_path'])
+                # FatalSafirError
+                for i in dirs:
+                    if i.endswith('err'):
+                        remove_err(chid, 'FatalSafirError')  # remove scenario (both syms & add them to err.csv)
+                        print('[ERROR] Scenario {} finished with FatalSafirError'.format(chid))
+                try:
+                    results[chid] = mean_temp(ambient_temperature)
+                    print('[OK] {} calculations finished'.format(chid))
+                # FiberTemperatureError
+                except ChildProcessError:
+                    remove_err(chid, 'FiberTemperatureError')  # remove scenario (both syms & add them to err.csv)
+                    print('[ERROR] Scenario {} finished with FiberTemperatureError'.format(chid))
+
+            chdir('..')
+
+            # save results every 5 scenarios (10 sim)
+            if (index+1) % 8 == 0:
+                self.save_res(results, export.temp_crit(self.user['miu']))
+                results.clear()
+
+            # save errors
+            if len(errors) > 0:
+                with open('{}\err.csv'.format(self.user['results_path']), 'w') as file:
+                    file.writelines(errors)
+
+        return [self.save_res(results, export.temp_crit(self.user['miu'])) if results else -1]
 
 
 '''Run multisimulation on cluster'''
@@ -218,4 +273,5 @@ class Cluster:
 
 
 if __name__ == '__main__':
-    Queue(argv[1]).run()
+    sys.stdout = Logger()
+    Queue(sys.argv[1]).run()

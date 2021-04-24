@@ -7,18 +7,32 @@ from pandas import read_csv as rcsv
 import core
 from os import mkdir, chdir
 from shutil import copyfile
-from sys import argv
+import sys
 from fdsafir import Thermal, user_config
 from fires import f_localization, Properties, Fuel
+
+
+class Logger(object):
+    def __init__(self):
+        self.terminal = sys.stdout
+        self.log = open('mc.log', 'w')
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        pass
+
 
 '''Read geometry and map it to the fire (choose the most exposed sections)'''
 
 
 class Single:
     def __init__(self, title):
-        self.title = title     # simulation title
-        self.prof_type = 'invalid profile type'     # type of steel profile
-        self.geometry = self.read_dxf()     # import geometry from DXF file
+        self.title = title  # simulation title
+        self.prof_type = 'invalid profile type'  # type of steel profile
+        self.geometry = self.read_dxf()  # import geometry from DXF file
 
     # read dxf geometry
     def read_dxf(self):
@@ -32,12 +46,12 @@ class Single:
             except IndexError:
                 return nodes
 
-        dxffile = ezdxf.readfile('{}.dxf'.format(self.title))
         print('Reading DXF geometry...')
+        dxffile = ezdxf.readfile('{}.dxf'.format(self.title))
         msp = dxffile.modelspace()
         columns = []
         beams = []
-        for l in msp.query('LINE'):     # assign LINES elements to columns or beams tables
+        for l in msp.query('LINE'):  # assign LINES elements to columns or beams tables
             if l.dxf.start[0] == l.dxf.end[0] and l.dxf.start[1] == l.dxf.end[1]:
                 columns.append(l)
             else:
@@ -94,7 +108,7 @@ class Single:
             v = vectors(lines[index])  # generate vectors for selected line
             section = v[0] + (np.dot(v[4], v[3]) / np.dot(v[3], v[3])) * v[3]  # find the most exposed section coords
 
-            unit_v = v[3] / np.linalg.norm(v[3])    # unit vector of selected line
+            unit_v = v[3] / np.linalg.norm(v[3])  # unit vector of selected line
 
             # set column's section to the biggest heat flux height (1.2m from the fire base)
             if element == 'c':
@@ -144,11 +158,11 @@ class Single:
 
         # import fire and structure data
         beams, columns, shells = elements
-        shell_lvl = 1e9     # infinitely large number
+        shell_lvl = 1e9  # infinitely large number
 
         # check for shell (plate, ceiling) existing above the fire assign the level if true
         for s in shells:
-            lvl = s[0][2]   # read level from first point of shell
+            lvl = s[0][2]  # read level from first point of shell
             if float(f_coords[2]) <= lvl < shell_lvl and ray_tracing_method(f_coords, s):
                 shell_lvl = lvl
         if shell_lvl == 1e9:  # set shell_lvl as -1 when there is no plate above the fire (besides compartment ceiling)
@@ -160,7 +174,7 @@ class Single:
         elif element == 'c':  # cut columns accordingly to Z in (fire_z - shell_lvl) range and map to relative
             mapped = map_lines(cut_lines(columns))
         else:
-            raise ValueError('{} is not a proper element type (\'b\' or \'c\' required)'.format(element))
+            raise ValueError('[ERROR] {} is not a valid element type (\'b\' or \'c\' required)'.format(element))
 
         self.prof_type = mapped[3]
 
@@ -174,10 +188,10 @@ class Single:
 
 class Generator:
     def __init__(self, t_end, title, fire_type, fuelconfig='fuel&stp'):
-        self.t_end = t_end      # simulation duration time
-        self.title = title     # simulation title
-        self.f_type = fire_type    # type of fire
-        self.fire_coords = []   # to export to Single class
+        self.t_end = t_end  # simulation duration time
+        self.title = title  # simulation title
+        self.f_type = fire_type  # type of fire
+        self.fire_coords = []  # to export to Single class
 
         print('Reading fuel configuration files...')
 
@@ -186,9 +200,9 @@ class Generator:
         else:
             self.fuel = rcsv('{}.ful'.format(title))
 
-        print('[OK] Fuel configuration files imported')
+        print('[OK] Fuel configuration imported')
 
-# import fire config
+    # import fire config
     def fire(self):
         # fire area is limited only by model limitation implemented to the fires.Properties
         fire_props, self.fire_coords = f_localization(self.fuel)
@@ -206,9 +220,7 @@ class Generator:
         elif self.f_type == 'sprink-noeff_store':
             f_hrr, f_diam, hrrpua, alpha = f.sprink_noeff(property='store')
         else:
-            raise KeyError('{} is not a proper fire type'.format(self.f_type))
-
-        # print('alpha={}\nHRRPUA={}'.format(alpha, hrrpua))
+            raise KeyError('[ERROR] {} is not a proper fire type'.format(self.f_type))
 
         return f_hrr, f_diam, hrrpua, alpha
 
@@ -225,7 +237,9 @@ class Generator:
 
         # add tables of hrr and diameter
         def v2str(vector): return [str(i) for i in vector]
+
         def add(start, tab): [lcf.insert(i + start, '    '.join(v2str(tab[i])) + '\n') for i in range(len(tab))]
+
         add(lcf.index('DIAMETER\n') + 2, diam_tab)
         add(lcf.index('RHR\n') + 2, hrr_tab)
 
@@ -247,22 +261,24 @@ class MultiT2D:
         center = np_section
         # add perpendicular vector to section point
         if unit_v[0] != 0:
-            lax = np_section + np.array([-unit_v[2]/unit_v[0], 0, 1])
+            lax = np_section + np.array([-unit_v[2] / unit_v[0], 0, 1])
         elif unit_v[1] != 0:
-            lax = np_section + np.array([0, -unit_v[2]/unit_v[1], 1])
+            lax = np_section + np.array([0, -unit_v[2] / unit_v[1], 1])
         elif unit_v[2] != 0:
             lax = np_section + np.array([1, 0, -unit_v[0] / unit_v[2]])
         else:
-            raise ValueError('Zero length unit vector')
+            raise ValueError('[ERROR] Zero length unit vector')
 
         # save nodes to a dummy.IN file
         lines = core.dummy.copy()
-        # print(core.dummy)
-        # print(lines)
-        def v2str(vector): return [str(i) for i in vector]
-        def ins(index, arg): return lines[index].split('*')[0] + ' '.join(v2str(arg)) + lines[index].split('*')[1]
+
+        def v2str(vector):
+            return [str(i) for i in vector]
+
+        def ins(index, arg):
+            return lines[index].split('*')[0] + ' '.join(v2str(arg)) + lines[index].split('*')[1]
+
         for n in [(18, node1), (19, node2), (20, center), (21, lax)]:
-            # print(lines[n[0]])
             lines[n[0]] = ins(*n)
 
         with open('{}.in'.format(chid), 'w+') as file:
@@ -302,7 +318,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
             header = True
 
         df.to_csv(path, mode='a', header=header)
-        return '{} records written to {}_set.csv'.format(len(csvset), title)
+        return '    {} records written to {}_set.csv'.format(len(csvset), title)
 
     # create locafi.txt file
     def locafi(row, fire):
@@ -312,7 +328,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
         try:
             mkdir('{}\{}'.format(results_path, str(row['ID'])))
         except FileExistsError:
-            print('directory already exists')
+            pass
         chdir('{}\{}'.format(results_path, str(row['ID'])))
 
         # create locafi.txt fire file
@@ -323,24 +339,33 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
     csvset = create_df()
     df2csv(csvset)
     simid_core = int(current_seconds())
+
+    if simid_core % 2 != 0:  # check if odd
+        simid_core += 1
+
+    print('[OK] User configuration imported')
+
     sing = Single(title)
     gen = Generator(t_end, title, fire_type)
 
+    print('Preparing fire scenarios...')
+
     # draw MC input samples
-    for i in range(0, int(n)*2, 2):
-        fire = list(gen.fire())   # draw fire
+    for i in range(0, int(n) * 2, 2):
+        fire = list(gen.fire())  # draw fire
 
         # draw localization of the most exposed beam
-        csvset.loc[i] = [simid_core+i, 'b', ctime(current_seconds())] + sing.generate(gen.fire_coords) + fire[2:]
-        locafi(csvset.loc[i], fire[:2])     # generate locafi.txt
+        csvset.loc[i] = [simid_core + i, 'b', ctime(current_seconds())] + sing.generate(gen.fire_coords) + fire[2:]
+        locafi(csvset.loc[i], fire[:2])  # generate locafi.txt
 
         # draw localization of the most exposed column
-        csvset.loc[i+1] = [simid_core+i+1, 'c', ctime(current_seconds())] + sing.generate(gen.fire_coords,
-                                                                                          element_type='c') + fire[2:]
-        locafi(csvset.loc[i + 1], fire[:2])    # generate locafi.txt
+        csvset.loc[i + 1] = [simid_core + i + 1, 'c', ctime(current_seconds())] + sing.generate(gen.fire_coords,
+                                                                                                element_type='c') + fire[
+                                                                                                                    2:]
+        locafi(csvset.loc[i + 1], fire[:2])  # generate locafi.txt
 
         # write rows every 8 records (4 fire scenarios)
-        if (i+2) % 8 == 0:
+        if (i + 2) % 8 == 0:
             print(df2csv(csvset))
             del csvset
             csvset = create_df()
@@ -350,36 +375,45 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
         print(df2csv(csvset))
         del csvset
     except ValueError:
-        print('No more data to be written')
         pass
 
-    return 'Summary: {} scenarios (2 simulations each) generated'.format(int(n))
+    return '[OK] Summary: {} scenarios (2 simulations each) written to the CSV'.format(int(n))
 
 
 # generate files for multisimulation
 def generate_sim(data_path):
+
+    print('Generating SAFIR\'s input files...')
+
     chdir(config['results_path'])
     data_set = rcsv(data_path)
     for i, r in data_set.iterrows():
         if r['profile'] != r['profile']:
-            open('{}\err'.format(r['ID']), 'w')
+            with open('{0}\{0}.err'.format(r['ID']), 'w') as err:
+                mess = '[WARNING] There are no elements above the fire base in scenario {}'.format(r['ID'])
+                err.write('{}\nMax element temperature in te scenario is equal to the ambient temperature'.format(mess))
+            print(mess)
             continue
         chdir(str(r['ID']))
         MultiT2D().prepare(r)
         chdir('..')
 
-    return '{} simulation inputs were created'.format(len(data_set.index))
+    return '[OK]{}-simulation series has been set up'.format(len(data_set.index))
 
 
 if __name__ == '__main__':
-    config = user_config(argv[1])   # import multisimulation config
+    sys.stdout = Logger()
+
+    print('Reading user configuration...')
+    config = user_config(sys.argv[1])  # import multisimulation config
     try:
-        mkdir(config['results_path'])   # create results directory
+        mkdir(config['results_path'])  # create results directory
     except FileExistsError:
         pass
 
-    chdir(config['config_path'])    # change to config
+    chdir(config['config_path'])  # change to config
 
-    # print(generate_set(config['max_iterations'], config['case_title'], config['time_end'], config['fire_type'],
-    #              config['config_path'], config['results_path']))
+    print(generate_set(config['max_iterations'], config['case_title'], config['time_end'], config['fire_type'],
+                       config['config_path'], config['results_path']))
     print(generate_sim('{}\{}_set.csv'.format(config['results_path'], config['case_title'])))
+
