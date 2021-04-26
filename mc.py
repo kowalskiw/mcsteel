@@ -8,21 +8,8 @@ import core
 from os import mkdir, chdir
 from shutil import copyfile
 import sys
-from fdsafir import Thermal, user_config
+from fdsafir import Thermal, user_config, Logger
 from fires import f_localization, Properties, Fuel
-
-
-class Logger(object):
-    def __init__(self):
-        self.terminal = sys.stdout
-        self.log = open('mc.log', 'w')
-
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
-
-    def flush(self):
-        pass
 
 
 '''Read geometry and map it to the fire (choose the most exposed sections)'''
@@ -402,7 +389,7 @@ def generate_sim(data_path):
 
 
 if __name__ == '__main__':
-    sys.stdout = Logger()
+    sys.stdout = Logger('mc.log')
 
     print('Reading user configuration...')
     config = user_config(sys.argv[1])  # import multisimulation config

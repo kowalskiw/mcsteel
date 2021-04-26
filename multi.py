@@ -5,20 +5,7 @@ import sys
 import export
 from pandas.errors import EmptyDataError
 
-from fdsafir import run_safir, user_config
-
-
-class Logger(object):
-    def __init__(self):
-        self.terminal = sys.stdout
-        self.log = open('multi.log', 'w')
-
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
-
-    def flush(self):
-        pass
+from fdsafir import run_safir, user_config, Logger
 
 
 # linear interpolation between two points with given first coordinate x_i, returns y_i
@@ -41,6 +28,7 @@ def t2d(chid, safir_dir_path):
 def mean_temp(amb_temp):
     temp_table = []
     nfiber = 0
+    is_reading_temp = False
 
     for i in range(1, 3):
         temp = 0
@@ -59,6 +47,7 @@ def mean_temp(amb_temp):
             elif line.startswith(' TIME'):
                 temp = 0
                 t = float(line.split()[1])
+                is_reading_temp = True
 
             # try to save previous step mean cross-section temperature
             elif line.startswith('\n'):
@@ -68,7 +57,7 @@ def mean_temp(amb_temp):
                     pass
 
             # add temperature in element in certain step
-            else:
+            elif is_reading_temp:
                 try:
                     fiber_temp = float(line.split()[-1])
                     if fiber_temp >= amb_temp:
@@ -111,6 +100,7 @@ class Queue:
 
     # choose theta_a,max and t_theta,a,cr and add those values to case.res
     def save_res(self, tables, t_crit):
+        print('Saving results...')
         path_to_res = '{}_results.csv'.format(self.user['case_title'])
         if path_to_res not in listdir('.'):
             with open(path_to_res, 'w+'):
@@ -147,16 +137,19 @@ class Queue:
             if len(compared) == 2:
                 # smaller time_crit except 0
                 if compared[0][2] + compared[1][2] > 0 and compared[0][2] < compared[1][2]:
+                    print('    {} vs {}: Temperature in column scenario is higher -> added to results'.format(
+                        *[i[0] for i in compared]))
                     comp_id = compared.pop(0)[0]
-                    print('    {}: Temperature in column scenario is higher -> added to results'.format(comp_id))
 
                 elif compared[0][1] > compared[1][1]:   # bigger temp_max
+                    print('   {} vs {}: Temperature in column scenario is higher -> added to results'.format(
+                        *[i[0] for i in compared]))
                     comp_id = compared.pop(0)[0]
-                    print('    {}: Temperature in column scenario is higher -> added to results'.format(comp_id))
 
                 else:
+                    print('    {} vs {}: Temperature in beam scenario is higher -> added to results'.format(
+                        *[i[0] for i in compared]))
                     comp_id = compared.pop(1)[0]
-                    print('    {}: Temperature in beam scenario is higher -> added to results'.format(comp_id))
 
                 self.results_df.loc[len(self.results_df)] = compared[0] + [comp_id]   # save results to the Data Frame
                 compared = []
@@ -180,7 +173,6 @@ class Queue:
         def remove_err(id: str, error_type: str):
             iid = int(id)
             if iid % 2 == 1:
-                print(results)
                 try:
                     results.pop(str(iid - 1))
                     errors.append('{},{}\n'.format(iid - 1, error_type))
@@ -273,5 +265,5 @@ class Cluster:
 
 
 if __name__ == '__main__':
-    sys.stdout = Logger()
+    sys.stdout = Logger('multi.log')
     Queue(sys.argv[1]).run()

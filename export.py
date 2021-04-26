@@ -3,6 +3,8 @@ from math import log
 from pandas import read_csv as rcsv
 from sys import argv
 
+from fdsafir import user_config
+
 
 '''Save output as summary results.txt and csv database. Run chart.Charting().'''
 
@@ -31,6 +33,8 @@ def summary(data, t_crit, rset):
 
         return err, save_list
 
+    print('Saving results...')
+
     save_list = ['McSteel v0.0.1\n\nResults from {} iterations\n'.format(n_iter)]
     err = [1, 1]  # actual uncertainty of calculation
 
@@ -55,9 +59,9 @@ def summary(data, t_crit, rset):
 
     with open('results.txt', 'w') as file:
         file.writelines(save_list)
+    print('[OK] Results summary written to TXT file')
 
     # draw charts
-    print('temp_crit={}\nRSET={}'.format(t_crit, rset))
     Charting(data, t_crit, rset, (p_collapse, p_evacfailed)).draw()
 
     # check if uncertainty is low enough to stop calculations
@@ -65,19 +69,6 @@ def summary(data, t_crit, rset):
         return True
     else:
         return False
-
-
-def user_config(user_file):
-    user = {}
-    with open(user_file) as file:
-        for line in file.readlines():
-            splited = line.split()
-            try:
-                value = float(splited[-1])
-            except ValueError:
-                value = splited[-1]
-            user[splited[0]] = value
-    return user
 
 
 if __name__ == '__main__':

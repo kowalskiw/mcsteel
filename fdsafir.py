@@ -1,9 +1,22 @@
 from os import getcwd, listdir, chdir, scandir
 import subprocess
 from shutil import copyfile
-from sys import argv
+import sys
 from time import sleep
 from sys import stdout
+
+
+class Logger(object):
+    def __init__(self, filename: str):
+        self.terminal = sys.stdout
+        self.log = open(filename, 'w')
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        pass
 
 
 def animated_loading():
@@ -336,7 +349,8 @@ def scripted(safir_path, config_path, results_path):
     for case in scandir('{}\worst'.format(results_path)):
         chdir(case.path)
 
-        # Thermal 2D analyses of profilessafi
+        # Thermal 2D analyses of profiles
+        print('Running {} thermal analysis...'.format(case.name))
         for i in scandir():
             f = i.name
             if f.endswith('.in') and not f == 'frame.in':
@@ -349,21 +363,22 @@ def scripted(safir_path, config_path, results_path):
                 del t
 
         # Structural 3D analysis of the structure
+        print('Running {} mechanical analysis...'.format(case.name))
         m = Mechanical(case.name, 'NF', frame_pth='frame')
         m.change_in()
         run_safir('frame', safir_path, mcsteel=True)
 
-        print('\n[OK] {} scenario calculations finished!\n\n'.format(case.name))
+        print('[OK] {} scenario calculations finished!'.format(case.name))
 
 
 if __name__ == '__main__':
-    model = argv[1]
+    model = sys.argv[1]
     if model == ('-s' or '--scripted'):
         print('=== ATTENTION! ===\nYou have entered scripted mode. It is designed to support developers - be careful,'
               'things don\'t work here well ;-)\n==================\n')
         paths = [input('safir_path = '), input('config_path = '), input('results_path = ')]
         scripted(*paths)
     else:
-        calc_type = argv[2]
-        path = argv[3]
+        calc_type = sys.argv[2]
+        path = sys.argv[3]
         main(model, calc_type, path)

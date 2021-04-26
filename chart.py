@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
+import warnings
 
 
 class Charting:
@@ -9,6 +10,7 @@ class Charting:
         self.rset = rset
         self.p_collapse = probs[0]
         self.p_evacfailed = probs[1]
+        warnings.filterwarnings('ignore')
 
     # charts used for risk analysis
 
@@ -58,8 +60,9 @@ class Charting:
             plt.close('all')
 
     def draw(self):
-        print(self.results)
+        print('Drawing charts...')
         self.dist(type='cdf')
         self.dist(type='pdf')
+        print('[OK] Charts drawn (temp_crit={}, RSET={})'.format(int(self.t_crit), int(self.rset)))
 
         return 0
