@@ -1,3 +1,5 @@
+import time
+
 from numpy import random, pi
 from pandas import read_csv, merge, DataFrame
 from math import exp
@@ -145,6 +147,43 @@ class Fuel:
                     fuel.append([splt[0], self.pts2fds(pts)])
         # merge with .FUL config type
         return self.merge_data(fuel)
+
+
+class FuelOBJ(Fuel):
+
+    def find_points(self, **kwargs):
+        file_lines = kwargs['obj_file']
+        volume = []
+        volumes = []
+        vertices = []
+        def save_verts(volume): volumes.append([vertices[int(v_no)+1] for v_no in volume])
+
+        for l in file_lines:
+            if l.startswith('v'):
+                vertices.append([float(v) for v in l.split()[1:]])  # add vertice coords to the list
+            if l.startswith('g'):       # find volume
+                save_verts(volume)
+                volume.clear()
+            if l.startswith('f'):       # find face
+                for v in l.split()[1:]:
+                    vertice = v.split('//')[0]
+                    if vertice not in volume:   # add face vertice to volume list if not already present
+                        volume.append(vertice)
+        save_verts(volume)
+
+        return volumes[1:]
+
+    def read_fuel(self):
+        fuel = []
+        for lay in scandir():
+            splt = lay.name.split('.')
+            if splt[-1] == ('obj'):
+                with open(lay.name) as file:
+                    obj = file.readlines()
+                    for volume in self.find_points(obj_file=obj):
+                        fuel.append([splt[0],  self.pts2fds(volume)])
+
+        return self.merge_data(fuel)  # merge with .FUL config type
 
 
 '''Draw fire config from input distributions

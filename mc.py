@@ -9,7 +9,7 @@ from os import mkdir, chdir
 from shutil import copyfile
 import sys
 from fdsafir import Thermal, user_config, Logger
-from fires import f_localization, Properties, Fuel
+from fires import f_localization, Properties, Fuel, FuelOBJ
 
 
 '''Read geometry and map it to the fire (choose the most exposed sections)'''
@@ -174,7 +174,7 @@ class Single:
 
 
 class Generator:
-    def __init__(self, t_end, title, fire_type, fuelconfig='fuel&stp'):
+    def __init__(self, t_end, title, fire_type, fuelconfig):
         self.t_end = t_end  # simulation duration time
         self.title = title  # simulation title
         self.f_type = fire_type  # type of fire
@@ -182,8 +182,10 @@ class Generator:
 
         print('Reading fuel configuration files...')
 
-        if fuelconfig == 'fuel&stp':
-            self.fuel = Fuel(title).read_fuel()  # import fuel from config files
+        if fuelconfig == 'stp':
+            self.fuel = Fuel(title).read_fuel()  # import fuel from STEP and FUL config files
+        elif fuelconfig == 'obj':
+            self.fuel = FuelOBJ(title).read_fuel()  # import fuel from OBJ and FUL config files
         else:
             self.fuel = rcsv('{}.ful'.format(title))
 
@@ -291,7 +293,7 @@ class MultiT2D:
 
 
 # generates a set of n scenarios
-def generate_set(n, title, t_end, fire_type, config_path, results_path):
+def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconfig):
     def create_df():
         return df(columns=('ID', 'element_type', 'time', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s', 'distance',
                            'ceiling_lvl', 'profile', 'u_x', 'u_y', 'u_z', 'HRRPUA', 'alpha'))
@@ -333,7 +335,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path):
     print('[OK] User configuration imported')
 
     sing = Single(title)
-    gen = Generator(t_end, title, fire_type)
+    gen = Generator(t_end, title, fire_type, fuelconfig)
 
     print('Preparing fire scenarios...')
 
@@ -401,6 +403,6 @@ if __name__ == '__main__':
     chdir(config['config_path'])  # change to config
 
     print(generate_set(config['max_iterations'], config['case_title'], config['time_end'], config['fire_type'],
-                       config['config_path'], config['results_path']))
+                       config['config_path'], config['results_path'], config['fuel']))
     print(generate_sim('{}\{}_set.csv'.format(config['results_path'], config['case_title'])))
 

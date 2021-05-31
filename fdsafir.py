@@ -74,7 +74,7 @@ class Thermal:
         self.path = getcwd()
 
         if frame_chid == 'default':
-            self.frame = '{0}.gid\{0}'.format('frame')
+            self.frame = '{}'.format('frame')
         else:
             self.frame = frame_chid
 
