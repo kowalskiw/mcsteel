@@ -1,5 +1,5 @@
-config_path = D:\symulacje\01_test-fdsafir\config
-results_path = D:\symulacje\01_test-fdsafir\results
+config_path = D:\simulations\01_test\config
+results_path = D:\simulations\01_test\results
 case_title = test
 safir_path = D:\SAFIR
 fire_type = alfat2_store
@@ -8,3 +8,4 @@ RSET = 250
 max_iterations = 1000
 stop_condition = rmse
 time_end = 1800
+fuel = obj
