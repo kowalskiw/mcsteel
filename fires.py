@@ -156,13 +156,15 @@ class FuelOBJ(Fuel):
         volume = []
         volumes = []
         vertices = []
-        def save_verts(volume): volumes.append([vertices[int(v_no)+1] for v_no in volume])
+        def save_verts(volume): volumes.append([vertices[int(v_no)-1] for v_no in volume])
 
         for l in file_lines:
-            if l.startswith('v'):
+            if l[0] == 'v' and l[1] != 'n':
                 vertices.append([float(v) for v in l.split()[1:]])  # add vertice coords to the list
+
             if l.startswith('g'):       # find volume
                 save_verts(volume)
+
                 volume.clear()
             if l.startswith('f'):       # find face
                 for v in l.split()[1:]:
@@ -191,29 +193,31 @@ operates on the fire types included in the class - to be changed'''
 
 
 class Properties:
-    def __init__(self, t_end, properties):
+    def __init__(self, t_end, properties, fire_z, occupation=None):
         self.t_end = t_end  # duration of simulation
         self.hrr_max = 3e8  # W model limitation of HRR
         self.config = properties
+        self.fire_z = fire_z
+        self.occ = occupation
 
-    # def test_fire(self):
-    #     hrr = [0, 0, 15, 40]
-    #     area = 10
-    #     height = 0
-    #
-    #     return hrr, area, height
+    # calculate HRRPUA according to triangular distribution specified by user
+    def hrrpua(self):
+        upward = self.config.ZB - self.fire_z
+        downward = self.fire_z - self.config.ZA
+        reduction = (upward + downward/10) / self.config.hrrpua_height
+        return reduction * triangular(self.config.hrrpua_min, self.config.hrrpua_max, mode=self.config.hrrpua_mode)
+
+    # calculate ALPHA according to the experimental log-norm or user's triangular distribution
+    def alpha(self, hrrpua):
+        if not self.occ:
+            return triangular(self.config.alpha_min, self.config.alpha_max, mode=self.config.alpha_mode)  # [kW/s2]
+        elif self.occ == 'store':
+            return hrrpua * random.lognormal(-9.72, 0.97)  # [kW/s2]
 
     # t-squared fire
-    def alfa_t2(self, property=None):
-
-        # calculate HRRPUA according to triangular distribution specified by user
-        hrrpua = triangular(self.config.hrrpua_min, self.config.hrrpua_max, mode=self.config.hrrpua_mode)     # [kW/m2]
-
-        # calculate ALPHA according to the experimental log-norm or user's triangular distribution
-        if not property:
-            alpha = triangular(self.config.alpha_min, self.config.alpha_max, mode=self.config.alpha_mode)      # [kW/s2]
-        elif property == 'store':
-            alpha = hrrpua * random.lognormal(-9.72, 0.97)       # [kW/s2]
+    def alfa_t2(self):
+        hrrpua = self.hrrpua()     # [kW/m2]
+        alpha = self.alpha(hrrpua)      # [kW/s2]
 
         hrr_tab = []
         diam_tab = []
@@ -231,16 +235,9 @@ class Properties:
         return hrr_tab, diam_tab, hrrpua, alpha
 
     # curve taking non-effective sprinklers into account
-    def sprink_noeff(self, property=None):
-
-        # calculate HRRPUA according to triangular distribution specified by user
-        hrrpua = triangular(self.config.hrrpua_min, self.config.hrrpua_max, mode=self.config.hrrpua_mode)  # [kW/m2]
-
-        # calculate ALPHA according to the experimental log-norm or user's triangular distribution
-        if not property:
-            alpha = triangular(self.config.alpha_min, self.config.alpha_max, mode=self.config.alpha_mode)  # [kW/s2]
-        elif property == 'store':
-            alpha = hrrpua * random.lognormal(-9.72, 0.97)   # [kW/s2]
+    def sprink_noeff(self):
+        hrrpua = self.hrrpua()     # [kW/m2]
+        alpha = self.alpha(hrrpua)      # [kW/s2]
 
         hrr_tab = []
         diam_tab = []
@@ -262,16 +259,9 @@ class Properties:
         return hrr_tab, diam_tab, hrrpua, alpha
 
     # curve taking effective sprinklers into account
-    def sprink_eff(self, property=None):
-
-        # calculate HRRPUA according to triangular distribution specified by user
-        hrrpua = triangular(self.config.hrrpua_min, self.config.hrrpua_max, mode=self.config.hrrpua_mode)  # [kW]
-
-        # calculate ALPHA according to the experimental log-norm or user's triangular distribution
-        if not property:
-            alpha = triangular(self.config.alpha_min, self.config.alpha_max, mode=self.config.alpha_mode)  # [kW/s2]
-        elif property == 'store':
-            alpha = hrrpua * random.lognormal(-9.72, 0.97)   # [kW/s2]
+    def sprink_eff(self):
+        hrrpua = self.hrrpua()     # [kW/m2]
+        alpha = self.alpha(hrrpua)      # [kW/s2]
 
         hrr_tab = []
         diam_tab = []

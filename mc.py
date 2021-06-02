@@ -194,20 +194,19 @@ class Generator:
     # import fire config
     def fire(self):
         # fire area is limited only by model limitation implemented to the fires.Properties
+        # consider including f_localization to the Properties class
         fire_props, self.fire_coords = f_localization(self.fuel)
-        f = Properties(self.t_end, fire_props)
-        if self.f_type == 'alfat2':
+        if '_store' in self.f_type:
+            f = Properties(self.t_end, fire_props, self.fire_coords[2], occupation='store')
+        else:
+            f = Properties(self.t_end, fire_props, self.fire_coords[2])
+
+        if 'alfat2' in self.f_type:
             f_hrr, f_diam, hrrpua, alpha = f.alfa_t2()
-        elif self.f_type == 'alfat2_store':
-            f_hrr, f_diam, hrrpua, alpha = f.alfa_t2(property='store')
-        elif self.f_type == 'sprink-eff':
+        elif 'sprink-eff' in self.f_type:
             f_hrr, f_diam, hrrpua, alpha = f.sprink_eff()
-        elif self.f_type == 'sprink-eff_store':
-            f_hrr, f_diam, hrrpua, alpha = f.sprink_eff(property='store')
-        elif self.f_type == 'sprink-noeff':
+        elif'sprink-noeff' in self.f_type:
             f_hrr, f_diam, hrrpua, alpha = f.sprink_noeff()
-        elif self.f_type == 'sprink-noeff_store':
-            f_hrr, f_diam, hrrpua, alpha = f.sprink_noeff(property='store')
         else:
             raise KeyError('[ERROR] {} is not a proper fire type'.format(self.f_type))
 
