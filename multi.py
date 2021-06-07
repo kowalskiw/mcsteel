@@ -1,3 +1,5 @@
+import copy
+import socket
 from os import scandir, listdir, chdir
 import numpy as np
 from pandas import read_csv, DataFrame
@@ -247,23 +249,108 @@ class Queue:
 
 
 class Cluster:
+    def __init__(self, user, nodes_config):
+        self.user = user
+        self.nodes = nodes_config    # {ip: simulation directory}
+        self.s = socket.socket()
+        self.host = socket.gethostname()  # Get local machine name
+        self.port = 12345  # Reserve a port for your service.
+        self.s.bind((self.host, self.port))  # Bind to the port
+
+    # [H] send USER file to the node
+    def set_user(self, node):
+
+        pass
+
+    # [H] run mc.py on host
+    def run_mc(self):
+        pass
+
+    # [H] divide config (chid_set.csv) to the patches
+    def divide(self):
+        pass
+
+    # >>>loop>>>
+    # [H] send patch of simulations config (XXX_set.csv) to the node
+    def send_patch(self, node):
+        # create the client socket
+        print(f"[+] Connecting to {self.host}:{self.port}")
+        self.s.send((self.host, self.port))
+        print("[+] Connected.")
+
+        # send the filename and filesize
+        s.send(f"{filename}{SEPARATOR}{filesize}".encode())
+
+        # start sending the file
+        progress = tqdm.tqdm(range(filesize), f"Sending {filename}", unit="B", unit_scale=True, unit_divisor=1024)
+        with open(filename, "rb") as f:
+            while True:
+                # read the bytes from the file
+                bytes_read = f.read(BUFFER_SIZE)
+                if not bytes_read:
+                    # file transmitting is done
+                    break
+                # we use sendall to assure transimission in
+                # busy networks
+                s.sendall(bytes_read)
+                # update the progress bar
+                progress.update(len(bytes_read))
+
+        # close the socket
+        s.close()
+
+    # [H] run multi.py on node
+    def run_multi(self, node):
+        pass
+
+    # [H] download the results (XXX_results.csv) append it to the main DB
+    def pull_results(self, ip_address):
+        pass
+
+    # [H] check if any further patches are available >BREAK< or >CONTINUE<
+    # to calculate or not to calculate
+    def hamletize(self):
+        pass
+    #       - summarize already gathered results (export.summary)
+    #       - calculate RMSE and check the finish criteria
+    # <<<loop<<<
+
+    def run(self):
+        def loop():
+            for ip, sim_pth in self.nodes:
+                self.set_user(ip)
+                self.send_patch(ip+sim_pth)
+                self.run_multi(ip)
+
+        self.run_mc()
+        self.divide()
+
+        loop()
+
+        while True:
+            self.s.listen(5)
+            c, addr = self.s.accept()
+            self.pull_results(addr)
+            if self.hamletize():
+                loop()
+            c.close()
+
+
+class Node:
     def __init__(self):
-        # import cluster configuration
-        pass
+        self.s = socket.socket()
+        self.host = socket.gethostname()  # Get local machine name
+        self.port = 12345  # Reserve a port for your service
 
-    # send task to the nodes' queues
-    def assign(self):
-        pass
-
-    # initialize calculations on nodes
-    def wake_nodes(self):
-        pass
-
-    # check stop condition (sim number or RMSE), stop analysis or generate more scenarios if needed
-    def check_stop(self):
-        pass
+    # [N] call the host when finished
+    def finished(self):
+        self.s.connect((self.host, self.port))
+        self.s.send(b'finished')
+        self.s.close()
 
 
 if __name__ == '__main__':
+    n = Node()
     sys.stdout = Logger('multi.log')
     Queue(sys.argv[1]).run()
+    n.finished()
