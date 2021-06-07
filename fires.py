@@ -1,7 +1,5 @@
-import time
-
 from numpy import random, pi
-from pandas import read_csv, merge, DataFrame
+from pandas import read_csv, merge, DataFrame, Series
 from math import exp
 from steputils import p21
 from os import scandir
@@ -192,8 +190,8 @@ class FuelOBJ(Fuel):
 operates on the fire types included in the class - to be changed'''
 
 
-class Properties:
-    def __init__(self, t_end, properties, fire_z, occupation=None):
+class Fire:
+    def __init__(self, t_end, properties, fire_z, occupation):
         self.t_end = t_end  # duration of simulation
         self.hrr_max = 3e8  # W model limitation of HRR
         self.config = properties
@@ -215,7 +213,7 @@ class Properties:
             return hrrpua * random.lognormal(-9.72, 0.97)  # [kW/s2]
 
     # t-squared fire
-    def alfa_t2(self):
+    def t_squared(self):
         hrrpua = self.hrrpua()     # [kW/m2]
         alpha = self.alpha(hrrpua)      # [kW/s2]
 
@@ -234,56 +232,38 @@ class Properties:
 
         return hrr_tab, diam_tab, hrrpua, alpha
 
-    # curve taking non-effective sprinklers into account
-    def sprink_noeff(self):
-        hrrpua = self.hrrpua()     # [kW/m2]
-        alpha = self.alpha(hrrpua)      # [kW/s2]
+    def change(self, time_crit, tab, value_crit):
+        #t_squared
+        return tab
 
-        hrr_tab = []
-        diam_tab = []
-        for i in range(0, 99):
-            t = int(self.t_end * i/98)
+    def burn(self):
+        hrr_tab, diam_tab, hrrpua, alpha = self.t_squared()
+        q_0 = round(alpha * (self.config.t_sprink ** 2) * 1000, 4)
 
-            # calculate HRR (steady-state after sprinklers activation), append
-            if t < self.config.t_sprink:
-                hrr_tab.append([t, round(alpha * (t ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
-            else:
-                hrr_tab.append([t, round(alpha * (self.config.t_sprink ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
+        changed_tabs = [self.change(self.config.t_sprink, *tab) for tab in
+                        [(hrr_tab, q_0), (diam_tab, (q_0 / (hrrpua * 1000 * pi)) ** 0.5)]]
 
-            if hrr_tab[-1][-1] > self.hrr_max:  # check if hrr_tab does not exceed model limitation
-                hrr_tab[-1][-1] = self.hrr_max
+        return changed_tabs[0], changed_tabs[1], hrrpua, alpha
 
-            # calculate diameter, append
-            diam_tab.append([t, 2 * (hrr_tab[-1][-1] / (hrrpua*1000*pi))**0.5])  # [time /s/, diameter /m/]
 
-        return hrr_tab, diam_tab, hrrpua, alpha
+class SprinkNoEff(Fire):
+    # modify t-squared curve to taking non-effective sprinklers into account
+    def change(self, time_crit, tab, value_crit):
+        for i in range(len(tab)):
+            if tab[i][0] >= time_crit:
+                tab[i] = [tab[i][0], value_crit]
+        return tab
 
-    # curve taking effective sprinklers into account
-    def sprink_eff(self):
-        hrrpua = self.hrrpua()     # [kW/m2]
-        alpha = self.alpha(hrrpua)      # [kW/s2]
 
-        hrr_tab = []
-        diam_tab = []
-        q_0 = alpha * self.config.t_sprink ** 2 * 1000  # [W]
-        q_limit = round(0.15 * q_0)
-        for i in range(0, 99):
-            t = int(self.t_end * i/98)
-
-            # calculate HRR (extinguishing phase after sprinklers activation), append
-            if t < self.config.t_sprink:
-                hrr_tab.append([t, round(alpha * (t ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
-            else:
-                q = round(q_0 * exp(-0.0024339414 * (t - self.config.t_sprink)), 4)  # W
-                if q >= q_limit:
-                    hrr_tab.append([t, q])  # [time /s/, HRR /W/]
+class SprinkEff(Fire):
+    # modify t-squared curve to taking non-effective sprinklers into account
+    def change(self, time_crit, tab, value_crit, ):
+        value_limit = round(0.15 * value_crit)
+        for i in range(len(tab)):
+            if tab[i][0] >= time_crit:
+                value_red = round(value_crit * exp(-0.0024339414 * (tab[i][0] - self.config.t_sprink)), 4)
+                if value_red > value_limit:
+                    tab[i] = [tab[i][0], value_red]
                 else:
-                    hrr_tab.append([t, q_limit])
-
-            if hrr_tab[-1][-1] > self.hrr_max:  # check if hrr_tab does not exceed model limitation
-                hrr_tab[-1][-1] = self.hrr_max
-
-            # calculate diameter, append
-            diam_tab.append([t, 2 * (hrr_tab[-1][-1] / (hrrpua*1000*pi))**0.5])  # [time /s/, diameter /m/]
-
-        return hrr_tab, diam_tab, hrrpua, alpha
+                    tab[i] = [tab[i][0], value_limit]
+        return tab

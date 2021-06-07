@@ -9,7 +9,7 @@ from os import mkdir, chdir
 from shutil import copyfile
 import sys
 from fdsafir import Thermal, user_config, Logger
-from fires import f_localization, Properties, Fuel, FuelOBJ
+import fires
 
 
 '''Read geometry and map it to the fire (choose the most exposed sections)'''
@@ -183,9 +183,9 @@ class Generator:
         print('Reading fuel configuration files...')
 
         if fuelconfig == 'stp':
-            self.fuel = Fuel(title).read_fuel()  # import fuel from STEP and FUL config files
+            self.fuel = fires.Fuel(title).read_fuel()  # import fuel from STEP and FUL config files
         elif fuelconfig == 'obj':
-            self.fuel = FuelOBJ(title).read_fuel()  # import fuel from OBJ and FUL config files
+            self.fuel = fires.FuelOBJ(title).read_fuel()  # import fuel from OBJ and FUL config files
         else:
             self.fuel = rcsv('{}.ful'.format(title))
 
@@ -194,23 +194,23 @@ class Generator:
     # import fire config
     def fire(self):
         # fire area is limited only by model limitation implemented to the fires.Properties
-        # consider including f_localization to the Properties class
-        fire_props, self.fire_coords = f_localization(self.fuel)
-        if '_store' in self.f_type:
-            f = Properties(self.t_end, fire_props, self.fire_coords[2], occupation='store')
-        else:
-            f = Properties(self.t_end, fire_props, self.fire_coords[2])
+        mc_params, self.fire_coords = fires.f_localization(self.fuel)
+        try:
+            type, occupation = self.f_type.split('_')
+        except ValueError:
+            type = self.f_type
+            occupation = None
 
-        if 'alfat2' in self.f_type:
-            f_hrr, f_diam, hrrpua, alpha = f.alfa_t2()
-        elif 'sprink-eff' in self.f_type:
-            f_hrr, f_diam, hrrpua, alpha = f.sprink_eff()
-        elif'sprink-noeff' in self.f_type:
-            f_hrr, f_diam, hrrpua, alpha = f.sprink_noeff()
+        if 'alfat2' in type:
+            f = fires.Fire(self.t_end, mc_params, self.fire_coords[2], occupation)
+        elif 'sprink-eff' in type:
+            f = fires.SprinkEff(self.t_end, mc_params, self.fire_coords[2], occupation)
+        elif'sprink-noeff' in type:
+            f = fires.SprinkNoEff(self.t_end, mc_params, self.fire_coords[2], occupation)
         else:
             raise KeyError('[ERROR] {} is not a proper fire type'.format(self.f_type))
 
-        return f_hrr, f_diam, hrrpua, alpha
+        return f.burn()
 
     def locafitxt(self, position, hrr_tab, diam_tab, z_ceil):
         # add data to LOCAFI.txt core
