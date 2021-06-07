@@ -1,6 +1,6 @@
 # McSteel
 
-Set of scripts to support stochastic analyses of structures exposed to a fire. As a submodel McSteel SAFIR® software by Univerity of Liège is used (https://www.uee.uliege.be/cms/c_4016386/en/safir). Multisimulation approach served as a basis concept of the analyses (https://bibliotekasgsp.locloudhosting.net/items/show/120).
+Set of scripts to support stochastic analyses of structures exposed to a fire. As a submodel SAFIR® software by Univerity of Liège is used (https://www.uee.uliege.be/cms/c_4016386/en/safir). Multisimulation approach served as a basis concept of the analyses (https://bibliotekasgsp.locloudhosting.net/items/show/120).
 
 
 * `mc.py` - generating multisimulation scenarios (Safir Thermal 2D);
