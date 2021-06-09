@@ -2,6 +2,7 @@ from time import time as current_seconds
 from time import ctime
 import numpy as np
 import ezdxf
+from ezdxf.addons import iterdxf as eziter
 from pandas import DataFrame as df
 from pandas import read_csv as rcsv
 import core
@@ -35,35 +36,36 @@ class Single:
 
         print('Reading DXF geometry...')
         dxffile = ezdxf.readfile('{}.dxf'.format(self.title))
-        msp = dxffile.modelspace()
-        columns = []
-        beams = []
-        for l in msp.query('LINE'):  # assign LINES elements to columns or beams tables
-            if l.dxf.start[0] == l.dxf.end[0] and l.dxf.start[1] == l.dxf.end[1]:
-                columns.append(l)
-            else:
-                beams.append(l)
+        columns = dxffile
+        beams = dxffile
+        x = 0
+        for file in (beams, columns):
+            msp = file.modelspace()
+            for l in msp.query('LINE'):  # assign LINES elements to columns or beams tables
+                if l.dxf.start[0] == l.dxf.end[0] and l.dxf.start[1] == l.dxf.end[1] and x == 0:
+                    l.destroy()
+                elif l.dxf.start[0] == l.dxf.end[0] and l.dxf.start[1] == l.dxf.end[1] and x == 1:
+                    l.destroy()
+            x += 1
 
         # assign 3DFACE elements to shells table
         shells = []
-        for s in msp.query('3DFACE'):
-            pass
         [shells.append(dxf_to_list(s)) for s in msp.query('3DFACE')]
 
         print('[OK] DXF geometry imported')
-
         return beams, columns, shells
 
     # map fire and geometry - choose fire scenario
     def map(self, f_coords, elements, element):
         # select the most exposed section among the lines and return its config
-        def map_lines(lines):
+        def map_lines(dxffile):
+            msp = dxffile.modelspace()
             # no element exception
-            if len(lines) == 0:
+            if len(msp.query('LINE')) == 0:
                 return (*f_coords, None, None, None, None, shell_lvl, None, None, None, None)
 
             d = 1e10  # infinitely large number
-            index = None
+            closest = None
 
             # return vectors for further calculations (line_start[0], line_end[1], fire[2], es[3], fs[4], fe[5], se[6])
             # find references
@@ -75,7 +77,7 @@ class Single:
                 return l_start, l_end, fire, l_end - l_start, fire - l_start, fire - l_end, l_start - l_end
 
             # iterate over lines to select the closest to the fire
-            for l in lines:
+            for l in msp.query('LINE'):
                 v = vectors(l)
 
                 # orthogonal projection module
@@ -90,9 +92,8 @@ class Single:
                 # overwrite with analysed line if it is closer to the fire then the already chosen
                 if d_iter < d:
                     d = d_iter
-                    index = lines.index(l)
-
-            v = vectors(lines[index])  # generate vectors for selected line
+                    closest = l
+            v = vectors(closest)  # generate vectors for selected line
             section = v[0] + (np.dot(v[4], v[3]) / np.dot(v[3], v[3])) * v[3]  # find the most exposed section coords
 
             unit_v = v[3] / np.linalg.norm(v[3])  # unit vector of selected line
@@ -107,18 +108,17 @@ class Single:
 
             # fire coords(list), section coords(list), length of the fire-section vector(float),
             # level of shell above the fire(float), profile(string), unit vector
-            return (*f_coords, *section, d, shell_lvl, lines[index].dxf.layer, *unit_v)
+            return (*f_coords, *section, d, shell_lvl, closest.dxf.layer, *unit_v)
 
         # remove elements beneath the fire base or above shell level from the lines
-        def cut_lines(lines):
-            lines_copied = lines.copy()
-            for i in range(len(lines_copied)):
-                l = lines[i]
+        def cut_lines(dxffile):
+            msp = dxffile.modelspace()
+            for l in msp.query('LINE'):
                 for edge in (l.dxf.start, l.dxf.end):
                     if edge[2] > shell_lvl or edge[2] < f_coords[2]:
-                        lines_copied.remove(l)
+                        l.destroy()
                         break
-            return lines_copied
+            return dxffile
 
         # checking if point consists in polygon (XY plane only)
         def ray_tracing_method(point: iter, poly: list) -> bool:
@@ -145,15 +145,13 @@ class Single:
 
         # import fire and structure data
         beams, columns, shells = elements
-        shell_lvl = 1e9  # infinitely large number
+        shell_lvl = 1e5  # atmosphere bounds (here the space begins!)
 
         # check for shell (plate, ceiling) existing above the fire assign the level if true
         for s in shells:
             lvl = s[0][2]  # read level from first point of shell
             if float(f_coords[2]) <= lvl < shell_lvl and ray_tracing_method(f_coords, s):
                 shell_lvl = lvl
-        if shell_lvl == 1e9:  # set shell_lvl as -1 when there is no plate above the fire (besides compartment ceiling)
-            shell_lvl = -1
 
         # initialize mapping
         if element == 'b':  # cut beams accordingly to Z in (fire_z - shell_lvl) range and map to relative
