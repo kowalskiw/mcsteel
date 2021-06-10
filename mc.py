@@ -235,8 +235,8 @@ class Generator:
 
 
 class MultiT2D:
-    def __init__(self):
-        pass
+    def __init__(self, time_end):
+        self.t_end = time_end
 
     def dummy(self, chid, section, unit_v):
 
@@ -267,6 +267,10 @@ class MultiT2D:
         for n in [(18, node1), (19, node2), (20, center), (21, lax)]:
             lines[n[0]] = ins(*n)
 
+        # change T_END
+        for n in (36, 41):
+            lines[n] = str(self.t_end).join(lines[n].split('&T_END&'))
+
         with open('{}.in'.format(chid), 'w+') as file:
             file.writelines(lines)
 
@@ -277,7 +281,7 @@ class MultiT2D:
             raise FileNotFoundError('There is no {}.gid directory among configuration'.format(profile_type))
 
         # change profile to LCF and set chid.in as S3D
-        Thermal(chid, 'LCF', frame_chid=chid, profile_pth='{}.in'.format(profile_type)).change_in()
+        Thermal(chid, 'LCF', frame_chid=chid, profile_pth='{}.in'.format(profile_type), time_end=self.t_end).change_in()
 
     # generate initial files (elem.in, prof.in, locafi.txt) based on DataFrame row (title_set.csv)
     def prepare(self, data_row):
@@ -381,7 +385,7 @@ def generate_sim(data_path):
             print(mess)
             continue
         chdir(str(r['ID']))
-        MultiT2D().prepare(r)
+        MultiT2D(config['time_end']).prepare(r)
         chdir('..')
 
     return '[OK]{}-simulation series has been set up'.format(len(data_set.index))

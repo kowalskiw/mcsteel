@@ -68,10 +68,12 @@ def sections(frame):
 
 
 class Thermal:
-    def __init__(self, chid: str, model: str, frame_chid: str = 'default', profile_pth: str = 'default'):
+    def __init__(self, chid: str, model: str, frame_chid: str = 'default', profile_pth: str = 'default',
+                 time_end: str = 0):
         self.chid = ''.join(chid.split('.')[:-1]) if chid.endswith('.in') or chid.endswith('.gid') else chid
         self.model = model
         self.path = getcwd()
+        self.t_end = time_end
 
         if frame_chid == 'default':
             self.frame = '{}'.format('frame')
@@ -128,9 +130,13 @@ class Thermal:
                 # elif self.model == 'HSM':
                 #     init[n] = 'FLUX {}'.format('HSM'.join(l.split('FISO')[1:]))
             
-            #change convective heat transfer coefficient of steel to 35 in locafi mode
+            # change convective heat transfer coefficient of steel to 35 in locafi mode
             elif self.model == 'LCF' and l.startswith('STEEL'):
                 init[n + 1] = '{}'.format('35'.join(init[n + 1].split('25')))
+
+            # change T_END
+            elif 'TIME' in l:
+                init[n + 1] = '    '.join([init[n].split()[0], str(self.t_end), '\n'])
 
         # write changed file
         with open(self.profile_pth, 'w') as file:
