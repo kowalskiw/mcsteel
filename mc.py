@@ -1,12 +1,11 @@
-from time import time as current_seconds
+from time import time as sec
 from time import ctime
 import numpy as np
 import ezdxf
-from ezdxf.addons import iterdxf as eziter
 from pandas import DataFrame as df
 from pandas import read_csv as rcsv
 import core
-from os import mkdir, chdir
+from os import makedirs, chdir
 from shutil import copyfile
 import sys
 from fdsafir import Thermal, user_config, Logger
@@ -35,33 +34,49 @@ class Single:
                 return nodes
 
         print('Reading DXF geometry...')
+        t1 = sec()
+        newdxf = ezdxf.new()
+        columns = newdxf.new_layout('columns')
+        beams = newdxf.new_layout('beams')
+        # shells = dxffile.new_layout('shells')
+        foo = newdxf.new_layout('foo')
         dxffile = ezdxf.readfile('{}.dxf'.format(self.title))
-        columns = dxffile
-        beams = dxffile
-        x = 0
-        for file in (beams, columns):
-            msp = file.modelspace()
-            for l in msp.query('LINE'):  # assign LINES elements to columns or beams tables
-                if l.dxf.start[0] == l.dxf.end[0] and l.dxf.start[1] == l.dxf.end[1] and x == 0:
-                    l.destroy()
-                elif l.dxf.start[0] == l.dxf.end[0] and l.dxf.start[1] == l.dxf.end[1] and x == 1:
-                    l.destroy()
-            x += 1
+        # columns = dxffile
+        # beams = dxffile
+        # x = 0
+        # for file in (beams, columns):
+        #     msp = file.modelspace()
+        #     for l in msp.query('LINE'):  # assign LINES elements to columns or beams tables
+        #         if l.dxf.start[0] == l.dxf.end[0] and l.dxf.start[1] == l.dxf.end[1] and x == 0:
+        #             l.destroy()
+        #         elif l.dxf.start[0] == l.dxf.end[0] and l.dxf.start[1] == l.dxf.end[1] and x == 1:
+        #             l.destroy()
+        #     x += 1
+        msp = dxffile.modelspace()
+        for l in msp.query('LINE'):  # assign LINES elements to columns or beams tables
+            if l.dxf.start[2] == l.dxf.end[2]:
+                beams.add_foreign_entity(l)
+            else:
+                columns.add_foreign_entity(l)
 
         # assign 3DFACE elements to shells table
         shells = []
         [shells.append(dxf_to_list(s)) for s in msp.query('3DFACE')]
 
+        print('time reading: ', sec()-t1)
         print('[OK] DXF geometry imported')
-        return beams, columns, shells
+        return {'b': beams, 'c': columns, 's': shells, 'f': foo}
 
     # map fire and geometry - choose fire scenario
-    def map(self, f_coords, elements, element):
+    def generate(self, f_coords, element):
+        t2 = sec()
+
         # select the most exposed section among the lines and return its config
-        def map_lines(dxffile):
-            msp = dxffile.modelspace()
+        def map_lines():
             # no element exception
-            if len(msp.query('LINE')) == 0:
+            lines = self.geometry['f']
+            print(len(lines))
+            if lines.__len__() == 0:
                 return (*f_coords, None, None, None, None, shell_lvl, None, None, None, None)
 
             d = 1e10  # infinitely large number
@@ -77,7 +92,7 @@ class Single:
                 return l_start, l_end, fire, l_end - l_start, fire - l_start, fire - l_end, l_start - l_end
 
             # iterate over lines to select the closest to the fire
-            for l in msp.query('LINE'):
+            for l in lines.query('LINE'):
                 v = vectors(l)
 
                 # orthogonal projection module
@@ -105,20 +120,20 @@ class Single:
                     section += [0, 0, 1.2]
                 else:
                     section[-1] = max([v[1][-1], v[0][-1]])
-
+            generated = (*f_coords, *section, d, shell_lvl, closest.dxf.layer, *unit_v)
+            self.geometry['f'].delete_all_entities()  # clear temporary layout 'foo'
+            self.geometry['f'].purge()  # clear temporary layout 'foo'
             # fire coords(list), section coords(list), length of the fire-section vector(float),
             # level of shell above the fire(float), profile(string), unit vector
-            return (*f_coords, *section, d, shell_lvl, closest.dxf.layer, *unit_v)
+            return generated
 
         # remove elements beneath the fire base or above shell level from the lines
-        def cut_lines(dxffile):
-            msp = dxffile.modelspace()
-            for l in msp.query('LINE'):
+        def cut_lines(lines: ezdxf.layouts.Paperspace):
+            for l in lines.query('LINE'):
                 for edge in (l.dxf.start, l.dxf.end):
-                    if edge[2] > shell_lvl or edge[2] < f_coords[2]:
-                        l.destroy()
+                    if not (edge[2] > shell_lvl or edge[2] < f_coords[2]):
+                        l.copy_to_layout(self.geometry['f'])
                         break
-            return dxffile
 
         # checking if point consists in polygon (XY plane only)
         def ray_tracing_method(point: iter, poly: list) -> bool:
@@ -143,32 +158,30 @@ class Single:
 
             return inside
 
-        # import fire and structure data
-        beams, columns, shells = elements
         shell_lvl = 1e5  # atmosphere bounds (here the space begins!)
 
         # check for shell (plate, ceiling) existing above the fire assign the level if true
-        for s in shells:
+        for s in self.geometry['s']:
             lvl = s[0][2]  # read level from first point of shell
             if float(f_coords[2]) <= lvl < shell_lvl and ray_tracing_method(f_coords, s):
                 shell_lvl = lvl
 
         # initialize mapping
         if element == 'b':  # cut beams accordingly to Z in (fire_z - shell_lvl) range and map to relative
-            mapped = map_lines(cut_lines(beams))
+            cut_lines(self.geometry['b'])
         elif element == 'c':  # cut columns accordingly to Z in (fire_z - shell_lvl) range and map to relative
-            mapped = map_lines(cut_lines(columns))
+            cut_lines(self.geometry['c'])
         else:
             raise ValueError('[ERROR] {} is not a valid element type (\'b\' or \'c\' required)'.format(element))
 
+        mapped = list(map_lines())
+
         self.prof_type = mapped[3]
 
+        print('generating time: ', sec() - t2)
         # (*fire coords, *section coords, length of the fire-section vector, level of shell above the fire, profile,
         # unit vector))
         return mapped
-
-    def generate(self, fire_coord, element_type='b'):
-        return list(self.map(fire_coord, self.geometry, element=element_type))
 
 
 class Generator:
@@ -316,7 +329,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
 
         # create simulation directory
         try:
-            mkdir('{}\{}'.format(results_path, str(row['ID'])))
+            makedirs('{}\{}'.format(results_path, str(row['ID'])))
         except FileExistsError:
             pass
         chdir('{}\{}'.format(results_path, str(row['ID'])))
@@ -328,7 +341,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
 
     csvset = create_df()
     df2csv(csvset)
-    simid_core = int(current_seconds())
+    simid_core = int(sec())
 
     if simid_core % 2 != 0:  # check if odd
         simid_core += 1
@@ -345,13 +358,11 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
         fire = list(gen.fire())  # draw fire
 
         # draw localization of the most exposed beam
-        csvset.loc[i] = [simid_core + i, 'b', ctime(current_seconds())] + sing.generate(gen.fire_coords) + fire[2:]
+        csvset.loc[i] = [simid_core + i, 'b', ctime(sec())] + sing.generate(gen.fire_coords, 'b') + fire[2:]
         locafi(csvset.loc[i], fire[:2])  # generate locafi.txt
 
         # draw localization of the most exposed column
-        csvset.loc[i + 1] = [simid_core + i + 1, 'c', ctime(current_seconds())] + sing.generate(gen.fire_coords,
-                                                                                                element_type='c') + fire[
-                                                                                                                    2:]
+        csvset.loc[i + 1] = [simid_core + i + 1, 'c', ctime(sec())] + sing.generate(gen.fire_coords, 'c') + fire[2:]
         locafi(csvset.loc[i + 1], fire[:2])  # generate locafi.txt
 
         # write rows every 8 records (4 fire scenarios)
@@ -397,7 +408,7 @@ if __name__ == '__main__':
     print('Reading user configuration...')
     config = user_config(sys.argv[1])  # import multisimulation config
     try:
-        mkdir(config['results_path'])  # create results directory
+        makedirs(config['results_path'])  # create results directory
     except FileExistsError:
         pass
 

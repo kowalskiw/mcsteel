@@ -136,7 +136,7 @@ class Thermal:
 
             # change T_END
             elif 'TIME' in l:
-                init[n + 1] = '    '.join([init[n].split()[0], str(self.t_end), '\n'])
+                init[n+1] = '    '.join([init[n+1].split()[0], str(self.t_end), '\n'])
 
         # write changed file
         with open(self.profile_pth, 'w') as file:
