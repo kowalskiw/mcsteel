@@ -123,19 +123,23 @@ class Single:
                 z1 = l.start[2]
                 z2 = l.end[2]
                 # do not consider lines beneath the fire base or above the ceiling
-                if z2 < f_coords[2] or z1 >= shell_lvl:
+                if z2 <= f_coords[2] or z1 >= shell_lvl:
                     continue
                 # accept lines in (fire base, ceiling) ranges
-                elif z1 >= f_coords[2] and z2 < shell_lvl:
+                elif z1 > f_coords[2] and z2 < shell_lvl:
                     self.geometry['f'].append(l)
-                # cut lines to (fire base, ceiling) ranges
+                # cut lines to (fire base, ceiling) ranges with 0.01 tolerance
                 else:
-                    if z1 < f_coords[2]:
-                        self.geometry['f'].append(l)
-                        self.geometry['f'][-1].start = (l.start[0], l.start[1], f_coords[2])
+                    to_save = None
+                    if z1 <= f_coords[2]:
+                        to_save = l
+                        to_save.start = (l.start[0], l.start[1], f_coords[2] + 0.01)
                     if z2 >= shell_lvl:
-                        self.geometry['f'].append(l)
-                        self.geometry['f'][-1].end = (l.end[0], l.end[1], shell_lvl - 0.001)
+                        to_save = l
+                        to_save.end = (l.end[0], l.end[1], shell_lvl - 0.01)
+                    # check if line has non-zero length
+                    if np.linalg.norm(np.array(to_save.start) - np.array(to_save.end)) > 0:
+                        self.geometry['f'].append(to_save)
 
         # checking if point consists in polygon (XY plane only)
         def ray_tracing_method(point: iter, poly: iter) -> bool:
