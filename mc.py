@@ -1,9 +1,6 @@
-import time
-from copy import copy
 from time import time as sec
 from time import ctime
 import numpy as np
-import ezdxf
 import dxfgrabber as dxf
 from pandas import DataFrame as df
 from pandas import read_csv as rcsv
@@ -11,9 +8,8 @@ import core
 from os import makedirs, chdir
 from shutil import copyfile
 import sys
-from fdsafir import Thermal, user_config, Logger
+from fdsafir import Thermal, user_config, Logger, progressBar
 import fires
-
 
 '''Read geometry and map it to the fire (choose the most exposed sections)'''
 
@@ -34,9 +30,11 @@ class Single:
 
         beams = []
         columns = []
-        print('Converting lines...')
+        x = 0
+        t = len(dxffile.entities)
         # assign LINES elements to columns or beams tables
         for ent in dxffile.entities:
+            progressBar('Converting lines', x, t)
             if ent.dxftype == 'LINE':
                 if ent.start[2] == ent.end[2]:
                     beams.append(ent)
@@ -217,7 +215,7 @@ class Generator:
             f = fires.Fire(self.t_end, mc_params, self.fire_coords[2], occupation)
         elif 'sprink-eff' in type:
             f = fires.SprinkEff(self.t_end, mc_params, self.fire_coords[2], occupation)
-        elif'sprink-noeff' in type:
+        elif 'sprink-noeff' in type:
             f = fires.SprinkNoEff(self.t_end, mc_params, self.fire_coords[2], occupation)
         else:
             raise KeyError('[ERROR] {} is not a proper fire type'.format(self.f_type))
@@ -322,7 +320,6 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
             header = True
 
         df.to_csv(path, mode='a', header=header)
-        return '    {} records written to {}_set.csv'.format(len(csvset), title)
 
     # create locafi.txt file
     def locafi(row, fire):
@@ -352,10 +349,10 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
     sing = Single(title)
     gen = Generator(t_end, title, fire_type, fuelconfig)
 
-    print('Preparing fire scenarios...')
-
     # draw MC input samples
     for i in range(0, int(n) * 2, 2):
+        print('bar')
+        progressBar('Preparing fire scenarios', i, n * 2)
         fire = list(gen.fire())  # draw fire
 
         # draw localization of the most exposed beam
@@ -368,13 +365,13 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
 
         # write rows every 8 records (4 fire scenarios)
         if (i + 2) % 8 == 0:
-            print(df2csv(csvset))
+            df2csv(csvset)
             del csvset
             csvset = create_df()
 
     # write unwritten rows
     try:
-        print(df2csv(csvset))
+        df2csv(csvset)
         del csvset
     except ValueError:
         pass
@@ -384,9 +381,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
 
 # generate files for multisimulation
 def generate_sim(data_path):
-
-    print('Generating SAFIR\'s input files...')
-
+    t = sec()
     chdir(config['results_path'])
     data_set = rcsv(data_path)
     for i, r in data_set.iterrows():
@@ -400,7 +395,7 @@ def generate_sim(data_path):
         MultiT2D(config['time_end']).prepare(r)
         chdir('..')
 
-    return '[OK]{}-simulation series has been set up'.format(len(data_set.index))
+    return '[OK] {}-simulation files created ({} s)'.format(len(data_set.index), sec() - t)
 
 
 if __name__ == '__main__':
@@ -415,7 +410,6 @@ if __name__ == '__main__':
 
     chdir(config['config_path'])  # change to config
 
-    # print(generate_set(config['max_iterations'], config['case_title'], config['time_end'], config['fire_type'],
-    #                    config['config_path'], config['results_path'], config['fuel']))
+    print(generate_set(config['max_iterations'], config['case_title'], config['time_end'], config['fire_type'],
+                       config['config_path'], config['results_path'], config['fuel']))
     print(generate_sim('{}\{}_set.csv'.format(config['results_path'], config['case_title'])))
-

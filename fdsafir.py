@@ -1,14 +1,12 @@
-from os import getcwd, listdir, chdir, scandir
 import subprocess
+from os import getcwd, listdir, chdir, scandir
 from shutil import copyfile
-import sys
-from time import sleep
-from sys import stdout
+from sys import stdout, argv
 
 
 class Logger(object):
     def __init__(self, filename: str):
-        self.terminal = sys.stdout
+        self.terminal = stdout
         self.log = open(filename, 'w')
 
     def write(self, message):
@@ -19,12 +17,12 @@ class Logger(object):
         pass
 
 
-def animated_loading():
-    chars = '/—\|'
-    for char in chars:
-        stdout.write('\r'+'loading...'+char)
-        sleep(.1)
-        stdout.flush()
+def progressBar(title, current, total, bar_length=20):
+    percent = float(current) * 100 / total
+    arrow = '-' * int(percent / 100 * bar_length - 1) + '>'
+    spaces = ' ' * (bar_length - len(arrow))
+
+    print('%s: [%s%s] %d %%' % (title, arrow, spaces, percent), end='\r')
 
 
 # return user configuration directory
@@ -141,22 +139,6 @@ class Thermal:
         # write changed file
         with open(self.profile_pth, 'w') as file:
             file.writelines(init)
-
-    # searching information about number of element
-    # def beam_type(self):
-    #     with open('{}.in'.format(self.frame)) as file:
-    #         frame = file.readlines()
-    #
-    #     # check if the profile is present in frame.in file
-    #     try:
-    #         frame.index('{}.tem\n'.format(self.alias))
-    #     except ValueError:
-    #         print('{} profile is not present in frame.in'.format(self.alias))
-    #
-    #     while not frame.pop(0).startswith(' NODOFBEAM'):
-    #         pass
-    #
-    #     return round((frame.index('{}.tem\n'.format(self.alias)) - 1) / 3) + 1
 
     # copying fire and frame file to section catalogue
     def copy_ess(self):
@@ -378,13 +360,13 @@ def scripted(safir_path, config_path, results_path):
 
 
 if __name__ == '__main__':
-    model = sys.argv[1]
+    model = argv[1]
     if model == ('-s' or '--scripted'):
         print('=== ATTENTION! ===\nYou have entered scripted mode. It is designed to support developers - be careful,'
               'things don\'t work here well ;-)\n==================\n')
         paths = [input('safir_path = '), input('config_path = '), input('results_path = ')]
         scripted(*paths)
     else:
-        calc_type = sys.argv[2]
-        path = sys.argv[3]
+        calc_type = argv[2]
+        path = argv[3]
         main(model, calc_type, path)

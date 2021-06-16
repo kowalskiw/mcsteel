@@ -5,7 +5,7 @@ import sys
 import export
 from pandas.errors import EmptyDataError
 
-from fdsafir import run_safir, user_config, Logger
+from fdsafir import run_safir, user_config, Logger, progressBar
 
 
 # linear interpolation between two points with given first coordinate x_i, returns y_i
@@ -183,9 +183,10 @@ class Queue:
                 errors.append('{},{}\n'.format(id, error_type))
                 errors.append('{},{}\n'.format(iid + 1, error_type))
 
-        print('Multisimulating started...')
-
+        x = 0
+        l = len(self.set.index)
         for index, row in self.set.iterrows():
+            progressBar('Multisimulating in progress ', x, l)
             chid = str(row['ID'])
             # check if queue element is in results DF
             if (int(chid) in self.results_df.ID.tolist()) or (int(chid) in self.results_df.compared.tolist()):
@@ -239,6 +240,8 @@ class Queue:
             if len(errors) > 0:
                 with open('{}\err.csv'.format(self.user['results_path']), 'w') as file:
                     file.writelines(errors)
+
+            x += 1
 
         return [self.save_res(results, export.temp_crit(self.user['miu'])) if results else -1]
 
