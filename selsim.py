@@ -32,14 +32,16 @@ simX/config /frame.gid
 The script also will run chosen scenarios (basic McSAFIR functionality)"""
 
 import pandas as pd
-from os import makedirs, scandir, chdir
+from os import makedirs, scandir, chdir, getcwd
 from shutil import copyfile as copy
 from math import ceil
 import sys
+from time import time as sec
+from time import ctime
 
 from fdsafir import scripted, user_config, out
 
-outpth = 'selsim.log'
+global outpth
 
 
 '''iterate over DF to select X simulations or 1% of the worst'''
@@ -127,4 +129,7 @@ def run(config, sim_number=0):
 
 
 if __name__ == '__main__':
+    outpth = getcwd() + '\selsim.log'
+    with open(outpth, '+w') as f:
+        f.write(ctime(sec()) + '\n')
     run(user_config(sys.argv[1]))

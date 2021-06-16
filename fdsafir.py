@@ -20,7 +20,7 @@ class Logger(object):
 
 def out(file, line):
     with open(file, 'a') as f:
-        f.writelines(list(line))
+        f.write(line + '\n')
     return line
 
 

@@ -5,13 +5,13 @@ import dxfgrabber as dxf
 from pandas import DataFrame as df
 from pandas import read_csv as rcsv
 import core
-from os import makedirs, chdir
+from os import makedirs, chdir, getcwd
 from shutil import copyfile
 import sys
 from fdsafir import Thermal, user_config, progressBar, out
 import fires
 
-outpth = 'mc.log'
+global outpth
 
 '''Read geometry and map it to the fire (choose the most exposed sections)'''
 
@@ -401,6 +401,9 @@ def generate_sim(data_path):
 
 
 if __name__ == '__main__':
+    outpth = getcwd() + '\mc.log'
+    with open(outpth, '+w') as f:
+        f.write(ctime(sec()) + '\n')
     print(out(outpth, 'Reading user configuration...'), end='\r')
     config = user_config(sys.argv[1])  # import multisimulation config
     try:
