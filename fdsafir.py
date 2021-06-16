@@ -18,6 +18,12 @@ class Logger(object):
         pass
 
 
+def out(file, line):
+    with open(file, 'a') as f:
+        f.writelines(list(line))
+    return line
+
+
 def progressBar(title, current, total, bar_length=20):
     percent = float(current) * 100 / total
     arrow = '-' * int(percent / 100 * bar_length - 1) + '>'

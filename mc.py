@@ -8,8 +8,10 @@ import core
 from os import makedirs, chdir
 from shutil import copyfile
 import sys
-from fdsafir import Thermal, user_config, Logger, progressBar
+from fdsafir import Thermal, user_config, progressBar, out
 import fires
+
+outpth = 'mc.log'
 
 '''Read geometry and map it to the fire (choose the most exposed sections)'''
 
@@ -24,9 +26,9 @@ class Single:
     def read_dxf(self):
         t1 = sec()
 
-        print('Reading DXF geometry...', end='\r')
+        print(out(outpth, 'Reading DXF geometry...'), end='\r')
         dxffile = dxf.readfile('{}.dxf'.format(self.title))
-        print('[OK] DXF geometry imported ({} s)'.format(round(sec()-t1, 2)))
+        print(out(outpth, '[OK] DXF geometry imported ({} s)'.format(round(sec() - t1, 2))))
 
         beams = []
         columns = []
@@ -41,7 +43,7 @@ class Single:
                 else:
                     columns.append(ent)
             x += 1
-        print('[OK] Lines converted                         ')
+        print(out(outpth, '[OK] Lines converted                         '))
 
         # assign 3DFACE elements to shells table
         shells = [ent for ent in dxffile.entities if ent.dxftype == '3DFACE']
@@ -190,7 +192,7 @@ class Generator:
         self.f_type = fire_type  # type of fire
         self.fire_coords = []  # to export to Single class
 
-        print('Reading fuel configuration files...', end='\r')
+        print(out(outpth, 'Reading fuel configuration files...'), end='\r')
         t = sec()
         if fuelconfig == 'stp':
             self.fuel = fires.Fuel(title).read_fuel()  # import fuel from STEP and FUL config files
@@ -199,7 +201,7 @@ class Generator:
         else:
             self.fuel = rcsv('{}.ful'.format(title))
 
-        print('[OK] Fuel configuration imported ({} s)'.format(round(sec()-t, 2)))
+        print(out(outpth, '[OK] Fuel configuration imported ({} s)'.format(round(sec() - t, 2))))
 
     # import fire config
     def fire(self):
@@ -344,7 +346,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
     if simid_core % 2 != 0:  # check if odd
         simid_core += 1
 
-    print('[OK] User configuration imported')
+    print(out(outpth, '[OK] User configuration imported'))
 
     sing = Single(title)
     gen = Generator(t_end, title, fire_type, fuelconfig)
@@ -389,7 +391,7 @@ def generate_sim(data_path):
             with open('{0}\{0}.err'.format(r['ID']), 'w') as err:
                 mess = '[WARNING] There are no elements above the fire base in scenario {}'.format(r['ID'])
                 err.write('{}\nMax element temperature in te scenario is equal to the ambient temperature'.format(mess))
-            print(mess)
+            print(out(outpth, mess))
             continue
         chdir(str(r['ID']))
         MultiT2D(config['time_end']).prepare(r)
@@ -399,9 +401,7 @@ def generate_sim(data_path):
 
 
 if __name__ == '__main__':
-    sys.stdout = Logger('mc.log')
-
-    print('Reading user configuration...', end='\r')
+    print(out(outpth, 'Reading user configuration...'), end='\r')
     config = user_config(sys.argv[1])  # import multisimulation config
     try:
         makedirs(config['results_path'])  # create results directory
@@ -410,6 +410,6 @@ if __name__ == '__main__':
 
     chdir(config['config_path'])  # change to config
 
-    print(generate_set(config['max_iterations'], config['case_title'], config['time_end'], config['fire_type'],
-                       config['config_path'], config['results_path'], config['fuel']))
-    print(generate_sim('{}\{}_set.csv'.format(config['results_path'], config['case_title'])))
+    print(out(outpth, generate_set(config['max_iterations'], config['case_title'], config['time_end'],
+                                   config['fire_type'], config['config_path'], config['results_path'], config['fuel'])))
+    print(out(outpth, generate_sim('{}\{}_set.csv'.format(config['results_path'], config['case_title']))))

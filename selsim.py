@@ -37,7 +37,9 @@ from shutil import copyfile as copy
 from math import ceil
 import sys
 
-from fdsafir import scripted, user_config, Logger
+from fdsafir import scripted, user_config, out
+
+outpth = 'selsim.log'
 
 
 '''iterate over DF to select X simulations or 1% of the worst'''
@@ -55,7 +57,7 @@ class Prepare:
         self.sim_number = sim_number
 
     def percentile(self):
-        print('Choosing the worst scenarios to further calculations...')
+        print(out(outpth, 'Choosing the worst scenarios to further calculations...'))
         # define how many scenarios will be considered in FEM analyses (default 10%)
         if self.sim_number == 0:
             perc = ceil(0.01 * len(self.results.index))
@@ -85,14 +87,14 @@ class Prepare:
             not_exceeded = not_exceeded.sort_values(by=['temp_max'], ascending=False)
             chosen = chosen.append(not_exceeded.head(n=diff))
 
-        print('[OK] The worst scenarios ready')
+        print(out(outpth, '[OK] The worst scenarios ready'))
 
         return chosen
 
     def save_in_dir(self, config_path):
         chosen = self.percentile()
 
-        print('Generating input files...')
+        print(out(outpth, 'Generating input files...'))
         for index, row in chosen.iterrows():
             # copy locafi.txt and essential SAFIR files
             id = int(row['ID'])
@@ -108,8 +110,8 @@ class Prepare:
                     gid = i.name[:-4]
                     copy('{0}\{1}.gid\{1}.in'.format(config_path, gid), 'worst\{}\{}.in'.format(id, gid))
 
-            print('    Simulation {} ready'.format(id))
-        print('[OK] {} scenarios ready for S3D calculations'.format(len(chosen.index)))
+            print(out(outpth, '    Simulation {} ready'.format(id)))
+        print(out(outpth, '[OK] {} scenarios ready for S3D calculations'.format(len(chosen.index))))
 
         return 0
 
@@ -125,5 +127,4 @@ def run(config, sim_number=0):
 
 
 if __name__ == '__main__':
-    sys.stdout = Logger('selsim.log')
     run(user_config(sys.argv[1]))
