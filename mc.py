@@ -1,7 +1,10 @@
+import time
+from copy import copy
 from time import time as sec
 from time import ctime
 import numpy as np
 import ezdxf
+import dxfgrabber as dxf
 from pandas import DataFrame as df
 from pandas import read_csv as rcsv
 import core
@@ -23,59 +26,37 @@ class Single:
 
     # read dxf geometry
     def read_dxf(self):
-        def dxf_to_list(dxfshell: ezdxf.entities.solid.Face3d) -> list:
-            nodes = []
-            i = 0
-            try:
-                while True:
-                    nodes.append(tuple([dxfshell[i][j] for j in range(3)]))
-                    i += 1
-            except IndexError:
-                return nodes
+        t1 = sec()
 
         print('Reading DXF geometry...')
-        t1 = sec()
-        newdxf = ezdxf.new()
-        columns = newdxf.new_layout('columns')
-        beams = newdxf.new_layout('beams')
-        # shells = dxffile.new_layout('shells')
-        foo = newdxf.new_layout('foo')
-        dxffile = ezdxf.readfile('{}.dxf'.format(self.title))
-        # columns = dxffile
-        # beams = dxffile
-        # x = 0
-        # for file in (beams, columns):
-        #     msp = file.modelspace()
-        #     for l in msp.query('LINE'):  # assign LINES elements to columns or beams tables
-        #         if l.dxf.start[0] == l.dxf.end[0] and l.dxf.start[1] == l.dxf.end[1] and x == 0:
-        #             l.destroy()
-        #         elif l.dxf.start[0] == l.dxf.end[0] and l.dxf.start[1] == l.dxf.end[1] and x == 1:
-        #             l.destroy()
-        #     x += 1
-        msp = dxffile.modelspace()
-        for l in msp.query('LINE'):  # assign LINES elements to columns or beams tables
-            if l.dxf.start[2] == l.dxf.end[2]:
-                beams.add_foreign_entity(l)
-            else:
-                columns.add_foreign_entity(l)
+        dxffile = dxf.readfile('{}.dxf'.format(self.title))
+        print('[OK] DXF geometry imported ({} s)'.format(round(sec()-t1, 2)))
+
+        beams = []
+        columns = []
+        print('Converting lines...')
+        # assign LINES elements to columns or beams tables
+        for ent in dxffile.entities:
+            if ent.dxftype == 'LINE':
+                if ent.start[2] == ent.end[2]:
+                    beams.append(ent)
+                else:
+                    columns.append(ent)
+            x += 1
+        print('[OK] Lines converted')
 
         # assign 3DFACE elements to shells table
-        shells = []
-        [shells.append(dxf_to_list(s)) for s in msp.query('3DFACE')]
+        shells = [ent for ent in dxffile.entities if ent.dxftype == '3DFACE']
 
-        print('time reading: ', sec()-t1)
-        print('[OK] DXF geometry imported')
-        return {'b': beams, 'c': columns, 's': shells, 'f': foo}
+        return {'b': beams, 'c': columns, 's': shells, 'f': []}
 
     # map fire and geometry - choose fire scenario
     def generate(self, f_coords, element):
-        t2 = sec()
 
         # select the most exposed section among the lines and return its config
         def map_lines():
             # no element exception
             lines = self.geometry['f']
-            print(len(lines))
             if lines.__len__() == 0:
                 return (*f_coords, None, None, None, None, shell_lvl, None, None, None, None)
 
@@ -85,14 +66,14 @@ class Single:
             # return vectors for further calculations (line_start[0], line_end[1], fire[2], es[3], fs[4], fe[5], se[6])
             # find references
             def vectors(line):
-                l_start = np.array(line.dxf.start)
-                l_end = np.array(line.dxf.end)
+                l_start = np.array(line.start)
+                l_end = np.array(line.end)
                 fire = np.array(f_coords)
 
                 return l_start, l_end, fire, l_end - l_start, fire - l_start, fire - l_end, l_start - l_end
 
             # iterate over lines to select the closest to the fire
-            for l in lines.query('LINE'):
+            for l in lines:
                 v = vectors(l)
 
                 # orthogonal projection module
@@ -120,23 +101,44 @@ class Single:
                     section += [0, 0, 1.2]
                 else:
                     section[-1] = max([v[1][-1], v[0][-1]])
-            generated = (*f_coords, *section, d, shell_lvl, closest.dxf.layer, *unit_v)
-            self.geometry['f'].delete_all_entities()  # clear temporary layout 'foo'
-            self.geometry['f'].purge()  # clear temporary layout 'foo'
+            generated = (*f_coords, *section, d, shell_lvl, closest.layer, *unit_v)
+
+            self.geometry['f'].clear()  # clear temporary layout 'foo'
+
             # fire coords(list), section coords(list), length of the fire-section vector(float),
             # level of shell above the fire(float), profile(string), unit vector
             return generated
 
         # remove elements beneath the fire base or above shell level from the lines
-        def cut_lines(lines: ezdxf.layouts.Paperspace):
-            for l in lines.query('LINE'):
-                for edge in (l.dxf.start, l.dxf.end):
-                    if not (edge[2] > shell_lvl or edge[2] < f_coords[2]):
-                        l.copy_to_layout(self.geometry['f'])
-                        break
+        # cut those between the values
+        def cut_lines(lines: list):
+            for l in lines:
+                # start point cannot be higher than end point
+                if l.start[2] > l.end[2]:
+                    start_rev = l.end
+                    end_rev = l.start
+                    l.start = start_rev
+                    l.end = end_rev
+
+                z1 = l.start[2]
+                z2 = l.end[2]
+                # do not consider lines beneath the fire base or above the ceiling
+                if z2 < f_coords[2] or z1 >= shell_lvl:
+                    continue
+                # accept lines in (fire base, ceiling) ranges
+                elif z1 >= f_coords[2] and z2 < shell_lvl:
+                    self.geometry['f'].append(l)
+                # cut lines to (fire base, ceiling) ranges
+                else:
+                    if z1 < f_coords[2]:
+                        self.geometry['f'].append(l)
+                        self.geometry['f'][-1].start = (l.start[0], l.start[1], f_coords[2])
+                    if z2 >= shell_lvl:
+                        self.geometry['f'].append(l)
+                        self.geometry['f'][-1].end = (l.end[0], l.end[1], shell_lvl - 0.001)
 
         # checking if point consists in polygon (XY plane only)
-        def ray_tracing_method(point: iter, poly: list) -> bool:
+        def ray_tracing_method(point: iter, poly: iter) -> bool:
             n = len(poly)
             inside = False
             x = point[0]
@@ -162,8 +164,8 @@ class Single:
 
         # check for shell (plate, ceiling) existing above the fire assign the level if true
         for s in self.geometry['s']:
-            lvl = s[0][2]  # read level from first point of shell
-            if float(f_coords[2]) <= lvl < shell_lvl and ray_tracing_method(f_coords, s):
+            lvl = s.points[0][2]  # read level from first point of shell
+            if float(f_coords[2]) <= lvl < shell_lvl and ray_tracing_method(f_coords, s.points):
                 shell_lvl = lvl
 
         # initialize mapping
@@ -178,7 +180,6 @@ class Single:
 
         self.prof_type = mapped[3]
 
-        print('generating time: ', sec() - t2)
         # (*fire coords, *section coords, length of the fire-section vector, level of shell above the fire, profile,
         # unit vector))
         return mapped
@@ -414,7 +415,7 @@ if __name__ == '__main__':
 
     chdir(config['config_path'])  # change to config
 
-    print(generate_set(config['max_iterations'], config['case_title'], config['time_end'], config['fire_type'],
-                       config['config_path'], config['results_path'], config['fuel']))
+    # print(generate_set(config['max_iterations'], config['case_title'], config['time_end'], config['fire_type'],
+    #                    config['config_path'], config['results_path'], config['fuel']))
     print(generate_sim('{}\{}_set.csv'.format(config['results_path'], config['case_title'])))
 
