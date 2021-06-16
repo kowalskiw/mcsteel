@@ -1,4 +1,5 @@
 import subprocess
+from time import time as sec
 from os import getcwd, listdir, chdir, scandir
 from shutil import copyfile
 from sys import stdout, argv
@@ -7,7 +8,7 @@ from sys import stdout, argv
 class Logger(object):
     def __init__(self, filename: str):
         self.terminal = stdout
-        self.log = open(filename, 'w')
+        self.log = open('{}_{}'.format(int(sec()), filename), 'w')
 
     def write(self, message):
         self.terminal.write(message)

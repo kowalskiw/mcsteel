@@ -24,7 +24,7 @@ class Single:
     def read_dxf(self):
         t1 = sec()
 
-        print('Reading DXF geometry...')
+        print('Reading DXF geometry...', end='\r')
         dxffile = dxf.readfile('{}.dxf'.format(self.title))
         print('[OK] DXF geometry imported ({} s)'.format(round(sec()-t1, 2)))
 
@@ -41,7 +41,7 @@ class Single:
                 else:
                     columns.append(ent)
             x += 1
-        print('[OK] Lines converted')
+        print('[OK] Lines converted                         ')
 
         # assign 3DFACE elements to shells table
         shells = [ent for ent in dxffile.entities if ent.dxftype == '3DFACE']
@@ -190,8 +190,8 @@ class Generator:
         self.f_type = fire_type  # type of fire
         self.fire_coords = []  # to export to Single class
 
-        print('Reading fuel configuration files...')
-
+        print('Reading fuel configuration files...', end='\r')
+        t = sec()
         if fuelconfig == 'stp':
             self.fuel = fires.Fuel(title).read_fuel()  # import fuel from STEP and FUL config files
         elif fuelconfig == 'obj':
@@ -199,7 +199,7 @@ class Generator:
         else:
             self.fuel = rcsv('{}.ful'.format(title))
 
-        print('[OK] Fuel configuration imported')
+        print('[OK] Fuel configuration imported ({} s)'.format(round(sec()-t, 2)))
 
     # import fire config
     def fire(self):
@@ -349,9 +349,9 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
     sing = Single(title)
     gen = Generator(t_end, title, fire_type, fuelconfig)
 
+    t = sec()
     # draw MC input samples
     for i in range(0, int(n) * 2, 2):
-        print('bar')
         progressBar('Preparing fire scenarios', i, n * 2)
         fire = list(gen.fire())  # draw fire
 
@@ -376,7 +376,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
     except ValueError:
         pass
 
-    return '[OK] Summary: {} scenarios (2 simulations each) written to the CSV'.format(int(n))
+    return '[OK] {} scenarios (2 simulations each) generated ({} s)'.format(int(n), round(sec() - t, 2))
 
 
 # generate files for multisimulation
@@ -395,13 +395,13 @@ def generate_sim(data_path):
         MultiT2D(config['time_end']).prepare(r)
         chdir('..')
 
-    return '[OK] {}-simulation files created ({} s)'.format(len(data_set.index), sec() - t)
+    return '[OK] {} simulation files created ({} s)'.format(len(data_set.index), round(sec() - t, 2))
 
 
 if __name__ == '__main__':
     sys.stdout = Logger('mc.log')
 
-    print('Reading user configuration...')
+    print('Reading user configuration...', end='\r')
     config = user_config(sys.argv[1])  # import multisimulation config
     try:
         makedirs(config['results_path'])  # create results directory
