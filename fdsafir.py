@@ -74,7 +74,7 @@ def sections(frame):
 
 class Thermal:
     def __init__(self, chid: str, model: str, frame_chid: str = 'default', profile_pth: str = 'default',
-                 time_end: str = 0):
+                 time_end: str = 1800):
         self.chid = ''.join(chid.split('.')[:-1]) if chid.endswith('.in') or chid.endswith('.gid') else chid
         self.model = model
         self.path = getcwd()
@@ -92,7 +92,10 @@ class Thermal:
             self.profile_pth = profile_pth
             self.alias = 'safir'
 
-        self.sections = sections(self.frame)
+        if profile_pth == 'default':
+            self.sections = sections('{0}\\{1}.gid\\{1}'.format(self.path, self.frame))
+        else:
+            self.sections = sections(self.frame)
 
     # changing input file form iso curve to natural fire mode
     def change_in(self):
@@ -134,14 +137,39 @@ class Thermal:
                         init.insert(n + 1, 'NO'.join(l.split('FISO')))
                 # elif self.model == 'HSM':
                 #     init[n] = 'FLUX {}'.format('HSM'.join(l.split('FISO')[1:]))
-            
+
             # change convective heat transfer coefficient of steel to 35 in locafi mode
             elif self.model == 'LCF' and l.startswith('STEEL'):
                 init[n + 1] = '{}'.format('35'.join(init[n + 1].split('25')))
 
             # change T_END
             elif 'TIME' in l:
-                init[n+1] = '    '.join([init[n+1].split()[0], str(self.t_end), '\n'])
+                init[n + 1] = '    '.join([init[n + 1].split()[0], str(self.t_end), '\n'])
+
+        # write changed file
+        with open(self.profile_pth, 'w') as file:
+            file.writelines(init)
+
+    def change_20(self):
+        with open(self.profile_pth) as file:
+            init = file.readlines()
+
+        with open('{}.backup'.format(self.alias), 'w') as file:
+            file.writelines(init)
+
+        # make changes
+        for n in range(len(init)):
+            l = init[n]
+            # change thermal load
+            if l.startswith('   F  ') and 'FISO' in l:  # heating boundaries with FISO
+                init[n] = 'F20'.join(l.split('FISO'))
+
+            # change T_END
+            elif ('TIME' in l) and ('END' not in l):
+                try:
+                    init[n + 1] = '    '.join([init[n + 1].split()[0], str(self.t_end), '\n'])
+                except IndexError:
+                    pass
 
         # write changed file
         with open(self.profile_pth, 'w') as file:
@@ -163,7 +191,7 @@ class Thermal:
             tor = file.readlines()
 
         # picking TEM file to insert torsion results to
-        if self.model == 'ISO':
+        if self.model == 'ISO' or 'F20':
             first_b = self.chid + '.tem'
         else:
             for v in self.sections.values():
@@ -186,7 +214,7 @@ class Thermal:
 
             # find TEM line where torsion results should be passed
             try:
-                if self.model == 'ISO':
+                if self.model == 'ISO' or 'F20':
                     tem_index = tem.index('       HOT\n')  # if model == ISO
                 elif self.model == 'CFD':
                     tem_index = tem.index('       CFD\n')  # if model == CFD
@@ -218,8 +246,12 @@ class Thermal:
         if self.model == 'ISO':
             run_safir(self.chid)
             self.insert_tor()
-            print('\n[OK] ISO-curve {} thermal 2D analysis finished\n\n'.format(self.chid))
-
+            print('[OK] ISO-curve {} thermal 2D analysis finished\n\n'.format(self.chid))
+        elif self.model == 'F20':
+            self.change_20()
+            run_safir(self.chid)
+            self.insert_tor()
+            print('[OK] F20-curve {} thermal 2D analysis finished\n\n'.format(self.chid))
         # natural fire
         else:
             self.copy_ess()
@@ -227,7 +259,7 @@ class Thermal:
                 self.change_in()
                 run_safir(self.chid)
                 self.insert_tor()
-                print('\n[OK] {}-data {} Thermal 2D analysis finished\n\n'.format(self.model, self.chid))
+                print('[OK] {}-data {} Thermal 2D analysis finished\n\n'.format(self.model, self.chid))
             except ValueError:
                 raise ValueError('[ERROR] change_in not possible')
 
@@ -267,10 +299,10 @@ class Mechanical:
     # running single SAFIR simulation
     def run(self):
         # iso fire curve
-        if self.model == 'ISO':
+        if self.model == 'ISO' or 'F20':
             self.copy_tems()
             run_safir('frame')
-            print('\n[OK] ISO-curve Structural 3D analysis finished\n\n')
+            print('\n[OK] {}}-curve Structural 3D analysis finished\n\n'.format(self.model))
 
         # natural fire
         else:
@@ -327,12 +359,12 @@ def main(model, calc_type='s3dt2d', path='.'):
 
     # Mechanical(folders, 'ISO').run()       # frame structural analysis - ISO curve
 
-    if model == 'LCF' and 't2d' in calc_type:
+    if 't2d' in calc_type:
         for prof in folders:
-            Thermal(prof, model).run()  # natural fire mode
+            Thermal(prof, model).run()  # normal temperatre mode
 
-    if model == 'LCF' and 's3d' in calc_type:
-        Mechanical(folders, 'NF').run()  # frame structural analysis - natural fire
+    if 's3d' in calc_type:
+        Mechanical(folders, model).run()  # frame structural analysis
 
     print('\n[OK] All SAFIR calculations finished, well done engineer!\n\n')
 
