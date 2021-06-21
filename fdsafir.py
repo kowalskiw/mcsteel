@@ -74,28 +74,23 @@ def sections(frame):
 
 class Thermal:
     def __init__(self, chid: str, model: str, frame_chid: str = 'default', profile_pth: str = 'default',
-                 time_end: str = 1800):
+                 time_end: str = 1800, scripted=False):
         self.chid = ''.join(chid.split('.')[:-1]) if chid.endswith('.in') or chid.endswith('.gid') else chid
         self.model = model
         self.path = getcwd()
         self.t_end = time_end
 
-        if frame_chid == 'default':
-            self.frame = '{}'.format('frame')
-        else:
+        if scripted:
             self.frame = frame_chid
-
-        if profile_pth == 'default':
-            self.profile_pth = '{0}\{1}.gid\{1}.in'.format(self.path, self.chid)
-            self.alias = self.chid
-        else:
             self.profile_pth = profile_pth
             self.alias = 'safir'
-
-        if profile_pth == 'default':
-            self.sections = sections('{0}\\{1}.gid\\{1}'.format(self.path, self.frame))
-        else:
             self.sections = sections(self.frame)
+
+        else:
+            self.frame = '{}'.format('frame')
+            self.profile_pth = '{0}\{1}.gid\{1}.in'.format(self.path, self.chid)
+            self.alias = self.chid
+            self.sections = sections('{0}\\{1}.gid\\{1}'.format(self.path, self.frame))
 
     # changing input file form iso curve to natural fire mode
     def change_in(self):
@@ -167,7 +162,7 @@ class Thermal:
             # change T_END
             elif ('TIME' in l) and ('END' not in l):
                 try:
-                    init[n + 1] = '    '.join([init[n + 1].split()[0], str(self.t_end), '\n'])
+                    init[n+1] = '    '.join([init[n+1].split()[0], str(self.t_end), '\n'])
                 except IndexError:
                     pass
 
@@ -199,7 +194,12 @@ class Thermal:
                     first_b = v[-1]
         # check if torsion results already are in TEM file
         try:
-            with open('{}\{}.gid\{}'.format(self.path, self.chid, first_b)) as file:
+            if scripted:
+                file_path = '{}\{}'.format(self.path, first_b)
+            else:
+                file_path = '{}\{}.gid\{}'.format(self.path, self.chid, first_b)
+
+            with open(file_path) as file:
                 tem = file.readlines()
             if '         w\n' in tem:
                 # chdir('..')
@@ -213,19 +213,34 @@ class Thermal:
                 raise ValueError('[ERROR] Torsion results not found in the TOR')
 
             # find TEM line where torsion results should be passed
+            annotation = ''
+            if self.model == 'ISO' or 'F20':
+                annotation = '       HOT\n'
+            elif self.model == 'CFD':
+                annotation = '       CFD\n'
+            elif self.model == 'LCF':
+                annotation = '    LOCAFI\n'
+            # elif self.model == 'HSM':
+            #     annotation = '       HSM\n'
+
+            tem_index = int
+            tem_with_tor = []
             try:
-                if self.model == 'ISO' or 'F20':
-                    tem_index = tem.index('       HOT\n')  # if model == ISO
-                elif self.model == 'CFD':
-                    tem_index = tem.index('       CFD\n')  # if model == CFD
-                elif self.model == 'LCF':
-                    tem_index = tem.index('    LOCAFI\n')  # if model == LCF
-                # elif self.model == 'HSM':
-                #     tem_index = tem.tem_index('       HSM\n')   # if model == HSM
+                tem_index = tem.index(annotation)
+                tem_with_tor = tem[:tem_index] + tor[tor_index:-1] + tem[tem_index:]
             except ValueError:
-                raise ValueError('[ERROR] Flux constraint data not found in TEM file')
+                print('[WARNING] Flux constraint annotation ("HOT", "CFD" or "LOCAFI") not found in the {} file'.format(
+                    first_b))
+                for l in tem:
+                    if 'TIME' in l:
+                        tem_index = tem.index(l) - 1
+                        tem_with_tor = tem[:tem_index] + tor[tor_index:-1] + [annotation] + tem[tem_index:]
+                        break
 
             # pasting torsion results
+            with open(file_path, 'w') as file:
+                file.writelines(tem_with_tor)
+
             with open('{}\{}.gid\{}'.format(self.path, self.chid, first_b), 'w') as file:
                 file.writelines(tem[:tem_index] + tor[tor_index:-1] + tem[tem_index:])
             # chdir('..')
@@ -376,13 +391,19 @@ def scripted(safir_path, config_path, results_path):
     for case in scandir('{}\worst'.format(results_path)):
         chdir(case.path)
 
+        with open('frame.in') as frame:
+            f = frame.readlines()
+            for i in range(len(f)):
+                if 'TIME' in i:
+                    t_end = f[i+1].split()[1]
+                    break
         # Thermal 2D analyses of profiles
         print('Running {} thermal analysis...'.format(case.name))
         for i in scandir():
             f = i.name
             if f.endswith('.in') and not f == 'frame.in':
                 chid = f[:-3]
-                t = Thermal(f, 'LCF', frame_chid='frame', profile_pth=f)
+                t = Thermal(f, 'LCF', frame_chid='frame', profile_pth=f, time_end=t_end, scripted=True)
                 t.alias = chid
                 t.change_in()
                 run_safir(chid, safir_path, mcsteel=True)
