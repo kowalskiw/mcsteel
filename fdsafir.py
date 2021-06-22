@@ -65,6 +65,7 @@ def sections(frame):
                 for i in range(5 - len(number)):
                     number = '0{}'.format(number)
                 tems[element[-1]].append('b{}_1.tem'.format(number))
+    print(tems)
 
     return tems
 
@@ -85,12 +86,14 @@ class Thermal:
             self.profile_pth = profile_pth
             self.alias = 'safir'
             self.sections = sections(self.frame)
+            self.scripted = True
 
         else:
             self.frame = '{}'.format('frame')
             self.profile_pth = '{0}\{1}.gid\{1}.in'.format(self.path, self.chid)
             self.alias = self.chid
             self.sections = sections('{0}\\{1}.gid\\{1}'.format(self.path, self.frame))
+            self.scripted = False
 
     # changing input file form iso curve to natural fire mode
     def change_in(self):
@@ -138,7 +141,7 @@ class Thermal:
                 init[n + 1] = '{}'.format('35'.join(init[n + 1].split('25')))
 
             # change T_END
-            elif 'TIME' in l:
+            elif ('TIME' in l) and ('END' not in l):
                 init[n + 1] = '    '.join([init[n + 1].split()[0], str(self.t_end), '\n'])
 
         # write changed file
@@ -186,7 +189,8 @@ class Thermal:
             tor = file.readlines()
 
         # picking TEM file to insert torsion results to
-        if self.model == 'ISO' or 'F20':
+
+        if self.model == ('ISO' or 'F20'):
             first_b = self.chid + '.tem'
         else:
             for v in self.sections.values():
@@ -194,7 +198,7 @@ class Thermal:
                     first_b = v[-1]
         # check if torsion results already are in TEM file
         try:
-            if scripted:
+            if self.scripted:
                 file_path = '{}\{}'.format(self.path, first_b)
             else:
                 file_path = '{}\{}.gid\{}'.format(self.path, self.chid, first_b)
@@ -214,7 +218,7 @@ class Thermal:
 
             # find TEM line where torsion results should be passed
             annotation = ''
-            if self.model == 'ISO' or 'F20':
+            if self.model == ('ISO' or 'F20'):
                 annotation = '       HOT\n'
             elif self.model == 'CFD':
                 annotation = '       CFD\n'
@@ -238,18 +242,19 @@ class Thermal:
                         break
 
             # pasting torsion results
-            with open(file_path, 'w') as file:
-                file.writelines(tem_with_tor)
-
-            with open('{}\{}.gid\{}'.format(self.path, self.chid, first_b), 'w') as file:
-                file.writelines(tem[:tem_index] + tor[tor_index:-1] + tem[tem_index:])
+            if self.scripted:
+                with open(file_path, 'w') as file:
+                    file.writelines(tem_with_tor)
+            else:
+                with open('{}\{}.gid\{}'.format(self.path, self.chid, first_b), 'w') as file:
+                    file.writelines(tem[:tem_index] + tor[tor_index:-1] + tem[tem_index:])
             # chdir('..')
             print('[OK] Torsion results copied to the TEM')
 
             return 0
 
         except FileNotFoundError:
-            raise FileNotFoundError('[ERROR] There is no proper TEM file in {}'.format(getcwd()))
+            raise FileNotFoundError('[ERROR] There is no proper TEM file ({}) in {}'.format(first_b, getcwd()))
 
         except UnboundLocalError:
             print('[WARNING] The {} profile is not found in the Structural 3D .IN file'.format(self.chid))
@@ -314,7 +319,7 @@ class Mechanical:
     # running single SAFIR simulation
     def run(self):
         # iso fire curve
-        if self.model == 'ISO' or 'F20':
+        if self.model == ('ISO' or 'F20'):
             self.copy_tems()
             run_safir('frame')
             print('\n[OK] {}}-curve Structural 3D analysis finished\n\n'.format(self.model))
@@ -394,7 +399,7 @@ def scripted(safir_path, config_path, results_path):
         with open('frame.in') as frame:
             f = frame.readlines()
             for i in range(len(f)):
-                if 'TIME' in i:
+                if 'TIME' in f[i]:
                     t_end = f[i+1].split()[1]
                     break
         # Thermal 2D analyses of profiles
