@@ -110,8 +110,10 @@ class Thermal:
             if l == 'MAKE.TEM\n':
                 if self.model == 'CFD':
                     init[n] = 'MAKE.TEMCD\n'
-                elif self.model == 'LCF':
+                elif self.model in {'LCF', 'LOCAFI'}:
                     init[n] = 'MAKE.TEMLF\n'
+                elif self.model in {'HSM', 'HASEMI'}:
+                    init[n] = 'MAKE.TEMHA\n'
 
                 # insert beam type
                 for k, v in self.sections.items():
@@ -126,40 +128,24 @@ class Thermal:
                     else:
                         init[n] = 'FLUX {}'.format('NO'.join(('CFD'.join(l[4:].split('FISO'))).split('F20')))
                         init.insert(n + 1, 'NO'.join(l.split('FISO')))
-                elif self.model == 'LCF':
+                elif self.model in {'LCF', 'LOCAFI'}:
                     if 'F20' not in l:
                         init[n] = 'FLUX {}'.format('LOCAFI'.join(l[4:].split('FISO')))
                     else:
                         init[n] = 'FLUX {}'.format('NO'.join(('LOCAFI'.join(l[4:].split('FISO'))).split('F20')))
                         init.insert(n + 1, 'NO'.join(l.split('FISO')))
-                # elif self.model == 'HSM':
-                #     init[n] = 'FLUX {}'.format('HSM'.join(l.split('FISO')[1:]))
+                elif self.model in {'HSM', 'HASEMI'}:
+                    if 'F20' not in l:
+                        init[n] = 'FLUX {}'.format('HASEMI'.join(l[4:].split('FISO')))
+                    else:
+                        init[n] = 'FLUX {}'.format('NO'.join(('HASEMI'.join(l[4:].split('FISO'))).split('F20')))
+                        init.insert(n + 1, 'NO'.join(l.split('FISO')))
+                elif self.model == 'F20':
+                    init[n] = 'F20'.join(l.split('FISO'))
 
             # change convective heat transfer coefficient of steel to 35 in locafi mode
-            elif self.model == 'LCF' and l.startswith('STEEL'):
+            elif self.model in {'LCF', 'LOCAFI', 'HSM', 'HASEMI'}:
                 init[n + 1] = '{}'.format('35'.join(init[n + 1].split('25')))
-
-            # change T_END
-            elif ('TIME' in l) and ('END' not in l):
-                init[n + 1] = '    '.join([init[n + 1].split()[0], str(self.t_end), '\n'])
-
-        # write changed file
-        with open(self.profile_pth, 'w') as file:
-            file.writelines(init)
-
-    def change_20(self):
-        with open(self.profile_pth) as file:
-            init = file.readlines()
-
-        with open('{}.backup'.format(self.alias), 'w') as file:
-            file.writelines(init)
-
-        # make changes
-        for n in range(len(init)):
-            l = init[n]
-            # change thermal load
-            if l.startswith('   F  ') and 'FISO' in l:  # heating boundaries with FISO
-                init[n] = 'F20'.join(l.split('FISO'))
 
             # change T_END
             elif ('TIME' in l) and ('END' not in l):
@@ -172,14 +158,16 @@ class Thermal:
         with open(self.profile_pth, 'w') as file:
             file.writelines(init)
 
-    # copying fire and frame file to section catalogue
+    # copying fire and frame file to section catalogue (natural fire only)
     def copy_ess(self):
         copyfile('{0}.gid\{0}.in'.format('frame'), '{}\{}.gid\{}.in'.format(self.path, self.chid, 'frame'))
 
         if self.model == 'CFD':
             copyfile('cfd.txt', '{}.gid\cfd.txt'.format(self.chid))
-        elif self.model == 'LCF':
+        elif self.model in {'LCF' or 'LOCAFI'}:
             copyfile('locafi.txt', '{}.gid\locafi.txt'.format(self.chid))
+        elif self.model in {'HSM' or 'HASEMI'}:
+            copyfile('hasemi.txt', '{}.gid\hasemi.txt'.format(self.chid))
 
     # adding torsion analysis results to first TEM file
     def insert_tor(self, config_path='.'):
@@ -217,14 +205,14 @@ class Thermal:
 
             # find TEM line where torsion results should be passed
             annotation = ''
-            if self.model == ('ISO' or 'F20'):
+            if self.model in {'ISO', 'F20'}:
                 annotation = '       HOT\n'
             elif self.model == 'CFD':
                 annotation = '       CFD\n'
-            elif self.model == 'LCF':
+            elif self.model in {'LCF', 'LOCAFI'}:
                 annotation = '    LOCAFI\n'
-            # elif self.model == 'HSM':
-            #     annotation = '       HSM\n'
+            elif self.model in {'HSM', 'HASEMI'}:
+                annotation = '    HASEMI\n'
 
             tem_index = int
             tem_with_tor = []
@@ -232,8 +220,8 @@ class Thermal:
                 tem_index = tem.index(annotation)
                 tem_with_tor = tem[:tem_index] + tor[tor_index:-1] + tem[tem_index:]
             except ValueError:
-                print('[WARNING] Flux constraint annotation ("HOT", "CFD" or "LOCAFI") not found in the {} file'.format(
-                    first_b))
+                print('[WARNING] Flux constraint annotation ("HOT", "CFD", "HASEMI" or "LOCAFI") not found in the'
+                      '{} file'.format(first_b))
                 for l in tem:
                     if 'TIME' in l:
                         tem_index = tem.index(l) - 1
@@ -266,14 +254,11 @@ class Thermal:
             run_safir(self.chid)
             self.insert_tor()
             print('[OK] ISO-curve {} thermal 2D analysis finished\n\n'.format(self.chid))
-        elif self.model == 'F20':
-            self.change_20()
-            run_safir(self.chid)
-            self.insert_tor()
-            print('[OK] F20-curve {} thermal 2D analysis finished\n\n'.format(self.chid))
-        # natural fire
+
+        # natural fire or F20
         else:
-            self.copy_ess()
+            if not self.model == 'F20':
+                self.copy_ess()
             try:
                 self.change_in()
                 run_safir(self.chid)
@@ -297,13 +282,21 @@ class Mechanical:
         with open('{}.in'.format(self.frame)) as file:
             init = file.readlines()
 
-        with open('frame.backup', 'w') as file:
+        with open('{}.backup'.format(self.frame.rsplit('.')[-1]), 'w') as file:
             file.writelines(init)
 
-        # change TEM names in IN file
-        tems = sections(self.frame)
-        for v in tems.values():
-            init[v[1]] = '{}\n'.format(v[-1])
+        if self.model == 'COLD':
+            # change to STATIC COLD mode
+            for l in init.copy():
+                if 'NCORES' in l:
+                    init[init.index(l) + 1] = 'STATICCOLD' + init[init.index(l) + 1].split[1:]
+                if 'M_BEAM' in l:
+                    init.remove(l)
+        else:
+            # change TEM names in IN file
+            tems = sections(self.frame)
+            for v in tems.values():
+                init[v[1]] = '{}\n'.format(v[-1])
 
         with open('{}.in'.format(self.frame), 'w') as file:
             file.writelines(init)
@@ -318,7 +311,7 @@ class Mechanical:
     # running single SAFIR simulation
     def run(self):
         # iso fire curve
-        if self.model == ('ISO' or 'F20'):
+        if self.model in {'ISO', 'F20'}:
             self.copy_tems()
             run_safir('frame')
             print('\n[OK] {}}-curve Structural 3D analysis finished\n\n'.format(self.model))

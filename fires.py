@@ -37,7 +37,6 @@ def f_localization(ffile):
         coordinates = []
         [coordinates.append(random.randint(int(10 * i[0]), int(10 * i[1])) / 10) for i in [xes, yes, zes]]
         return coordinates
-
     fire_site = mc_rand(ffile)  # generate fire coordinates from MC function
     config = ffile.iloc[fire_site]  # information about chosen fuel site
 
@@ -154,13 +153,14 @@ class FuelOBJ(Fuel):
         volume = []
         volumes = []
         vertices = []
+        is_grouped = False
         def save_verts(volume): volumes.append([vertices[int(v_no)-1] for v_no in volume])
 
         for l in file_lines:
             if l[0] == 'v' and l[1] != 'n':
-                vertices.append([float(v) for v in l.split()[1:]])  # add vertice coords to the list
-
+                vertices.append([float(v)/kwargs['scale'] for v in l.split()[1:]])  # add vertice coords to the list
             if l.startswith('g'):       # find volume
+                is_grouped = True
                 save_verts(volume)
 
                 volume.clear()
@@ -169,6 +169,10 @@ class FuelOBJ(Fuel):
                     vertice = v.split('//')[0]
                     if vertice not in volume:   # add face vertice to volume list if not already present
                         volume.append(vertice)
+        if not is_grouped:
+            raise RuntimeError('[ERROR] There is no group in OBJ file. It is required to group all volume boxes using'
+                               '"g" at the line beginning. For further information about Wavefront OBJ format and '
+                               'grouping see: http://fegemo.github.io/cefet-cg/attachments/obj-spec.pdf [2021-09-16]')
         save_verts(volume)
 
         return volumes[1:]
@@ -180,8 +184,12 @@ class FuelOBJ(Fuel):
             if splt[-1] == ('obj'):
                 with open(lay.name) as file:
                     obj = file.readlines()
-                    for volume in self.find_points(obj_file=obj):
+                    for volume in self.find_points(obj_file=obj, scale=1000):
                         fuel.append([splt[0],  self.pts2fds(volume)])
+                if len(fuel) == 0:
+                    raise RuntimeError('[ERROR] No fuel data imported from {}'.format(''.join(splt)))
+                elif fuel[-1][0] != splt[0]:
+                    raise RuntimeError('[ERROR] No fuel data imported from {}'.format(''.join(splt)))
 
         return self.merge_data(fuel)  # merge with .FUL config type
 
