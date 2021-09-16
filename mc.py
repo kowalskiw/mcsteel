@@ -101,7 +101,7 @@ class Single:
                     section += [0, 0, 1.2]
                 else:
                     section[-1] = max([v[1][-1], v[0][-1]])
-            generated = (*f_coords, *section, d, shell_lvl, closest.layer, *unit_v)
+            generated = (*f_coords, *section, d, shell_lvl, closest.layer.split('*')[0], *unit_v)
 
             self.geometry['f'].clear()  # clear temporary layout 'foo'
 

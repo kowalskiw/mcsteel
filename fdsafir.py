@@ -65,7 +65,6 @@ def sections(frame):
                 for i in range(5 - len(number)):
                     number = '0{}'.format(number)
                 tems[element[-1]].append('b{}_1.tem'.format(number))
-    print(tems)
 
     return tems
 
