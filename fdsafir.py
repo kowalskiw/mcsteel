@@ -81,6 +81,7 @@ class Thermal:
         self.t_end = time_end
 
         if scripted:
+            print('[INFO] scripted mode - multisimulations')
             self.frame = frame_chid
             self.profile_pth = profile_pth
             self.alias = 'safir'
@@ -88,6 +89,7 @@ class Thermal:
             self.scripted = True
 
         else:
+            print('[INFO] Default mode - single fdsafir.py simulation')
             self.frame = '{}'.format('frame')
             self.profile_pth = '{0}\{1}.gid\{1}.in'.format(self.path, self.chid)
             self.alias = self.chid
@@ -121,7 +123,11 @@ class Thermal:
                         [init.insert(n + 1, i) for i in ['BEAM_TYPE {}\n'.format(k), '{}.in\n'.format(self.frame)]]
 
             # change thermal load
-            elif l.startswith('   F  ') and 'FISO' in l:  # heating boundaries with FISO
+            elif l.startswith('   F  ') and 'FISO' in l:  # choose heating boundaries with FISO or FISO0frontier
+                # change FISO0 to FISO
+                if 'FISO0' in l:
+                    l = 'FISO'.join(l.split('FISO0'))
+
                 if self.model == 'CFD':
                     if 'F20' not in l:
                         init[n] = 'FLUX {}'.format('CFD'.join(l[4:].split('FISO')))
@@ -144,7 +150,7 @@ class Thermal:
                     init[n] = 'F20'.join(l.split('FISO'))
 
             # change convective heat transfer coefficient of steel to 35 in locafi mode
-            elif self.model in {'LCF', 'LOCAFI', 'HSM', 'HASEMI'}:
+            elif self.model in {'LCF', 'LOCAFI', 'HSM', 'HASEMI'} and 'STEEL' in l:
                 init[n + 1] = '{}'.format('35'.join(init[n + 1].split('25')))
 
             # change T_END

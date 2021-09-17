@@ -137,18 +137,18 @@ class Queue:
             if len(compared) == 2:
                 # smaller time_crit except 0
                 if compared[0][2] + compared[1][2] > 0 and compared[0][2] < compared[1][2]:
-                    print('    {} vs {}: Temperature in column scenario is higher -> added to results'.format(
-                        *[i[0] for i in compared]))
+                    # print('    {} vs {}: Temperature in column scenario is higher -> added to results'.format(
+                    #     *[i[0] for i in compared]))
                     comp_id = compared.pop(0)[0]
 
                 elif compared[0][1] > compared[1][1]:   # bigger temp_max
-                    print('   {} vs {}: Temperature in column scenario is higher -> added to results'.format(
-                        *[i[0] for i in compared]))
+                    # print('   {} vs {}: Temperature in column scenario is higher -> added to results'.format(
+                    #     *[i[0] for i in compared]))
                     comp_id = compared.pop(0)[0]
 
                 else:
-                    print('    {} vs {}: Temperature in beam scenario is higher -> added to results'.format(
-                        *[i[0] for i in compared]))
+                    # print('    {} vs {}: Temperature in beam scenario is higher -> added to results'.format(
+                    #     *[i[0] for i in compared]))
                     comp_id = compared.pop(1)[0]
 
                 self.results_df.loc[len(self.results_df)] = compared[0] + [comp_id]   # save results to the Data Frame

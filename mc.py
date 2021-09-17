@@ -1,3 +1,4 @@
+import time
 from time import time as sec
 from time import ctime
 import numpy as np
@@ -35,6 +36,7 @@ class Single:
         x = 0
         t = len(dxffile.entities)
         # assign LINES elements to columns or beams tables
+        start = sec()
         for ent in dxffile.entities:
             progressBar('Converting lines', x, t)
             if ent.dxftype == 'LINE':
@@ -43,7 +45,7 @@ class Single:
                 else:
                     columns.append(ent)
             x += 1
-        print(out(outpth, '[OK] Lines converted                         '))
+        print(out(outpth, '[OK] Lines converted ({} s)'.format(round(sec()-start, 2))))
 
         # assign 3DFACE elements to shells table
         shells = [ent for ent in dxffile.entities if ent.dxftype == '3DFACE']
@@ -299,7 +301,8 @@ class MultiT2D:
             raise FileNotFoundError('There is no {}.gid directory among configuration'.format(profile_type))
 
         # change profile to LCF and set chid.in as S3D
-        Thermal(chid, 'LCF', frame_chid=chid, profile_pth='{}.in'.format(profile_type), time_end=self.t_end).change_in()
+        Thermal(chid, 'LCF', frame_chid=chid, profile_pth='{}.in'.format(profile_type), time_end=self.t_end,
+                scripted=True).change_in()
 
     # generate initial files (elem.in, prof.in, locafi.txt) based on DataFrame row (title_set.csv)
     def prepare(self, data_row):
@@ -350,7 +353,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
     if simid_core % 2 != 0:  # check if odd
         simid_core += 1
 
-    print(out(outpth, '[OK] User configuration imported'))
+    print(out(outpth, '[OK] User configuration imported ({} s)'.format(round(sec()-start, 2))))
 
     sing = Single(title)
     gen = Generator(t_end, title, fire_type, fuelconfig)
@@ -405,6 +408,7 @@ def generate_sim(data_path):
 
 
 if __name__ == '__main__':
+    start = sec()
     outpth = getcwd() + '\mc.log'
     with open(outpth, '+w') as f:
         f.write(ctime(sec()) + '\n')
