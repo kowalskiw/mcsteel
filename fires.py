@@ -210,7 +210,7 @@ class Fire:
     def hrrpua(self):
         upward = self.config.ZB - self.fire_z
         downward = self.fire_z - self.config.ZA
-        reduction = (upward + downward/10) / self.config.hrrpua_height
+        reduction = (upward + downward/10) / self.config.hrrpua_height  # scale HRRPUA acc. to NFPA204 (1/10 downwards)
         return reduction * triangular(self.config.hrrpua_min, self.config.hrrpua_max, mode=self.config.hrrpua_mode)
 
     # calculate ALPHA according to the experimental log-norm or user's triangular distribution

@@ -13,7 +13,6 @@ def linear_inter(point1, point2, x_i):
     return point1[1] + (x_i - point1[0]) / (point2[0] - point1[0]) * (point2[1] - point1[1])
 
 
-'''Run single simulation'''
 
 
 # run SAFIR T2D
@@ -72,6 +71,9 @@ def mean_temp(amb_temp):
         temp_table.append(np.array(section_temp))
 
     return (temp_table[0] + temp_table[1]) / 2
+
+
+'''Run single simulation'''
 
 
 class RunSim:
@@ -231,8 +233,8 @@ class Queue:
 
             chdir('..')
 
-            # save results every 5 scenarios (10 sim)
-            if (index+1) % 8 == 0:
+            # save results every 5 %  of progress (to avoid the "Fail to allocate bitmap" error)
+            if x % int(l/20) == 0:
                 self.save_res(results, export.temp_crit(self.user['miu']))
                 results.clear()
 
