@@ -5,6 +5,7 @@ from shutil import copyfile
 from sys import stdout, argv
 
 
+# write stdout to file
 class Logger(object):
     def __init__(self, filename: str):
         self.terminal = stdout
@@ -24,6 +25,7 @@ def out(file, line):
     return line
 
 
+# print progress of process
 def progressBar(title, current, total, bar_length=20):
     percent = float(current) * 100 / total
     arrow = '-' * int(percent / 100 * bar_length - 1) + '>'
@@ -46,6 +48,8 @@ def user_config(user_file):
     return user
 
 
+# find profile - first element relation in SAFIR S3D file (i.e. HEA180.tem-b_0001.tem)
+# creates dict {'profile_no':[section_name, section_line_no, 'bXXXXX.tem'], ...}
 def sections(frame):
     with open('{}.in'.format(frame)) as file:
         frame_lines = file.readlines()
@@ -54,7 +58,6 @@ def sections(frame):
     c = 1
     for n in range(len(frame_lines)):  # sections TEM files
         l = frame_lines[n]  # line of frame.in file
-        # create dict {'profile_no':[section_name, section_line_no, 'bXXXXX.tem'], ...}
         if '.tem' in l:
             tems[str(c)] = [l[:-1], n]
             c += 1
@@ -95,6 +98,45 @@ class Thermal:
             self.alias = self.chid
             self.sections = sections('{0}\\{1}.gid\\{1}'.format(self.path, self.frame))
             self.scripted = False
+
+    def check_config_tor(self, config_path):
+        # find profile 'chid' in config files and open .gid catalogue if possible
+        path = '{0}\\{1}.gid\\{1}-'.format(config_path, self.profile_pth)
+        try:
+            with open('{0}\{1}.gid\{1}-1.T0R'.format(config_path, self.chid)) as file:
+                tor = file.readlines()
+
+        except FileNotFoundError:
+            try:
+                with open('{0}\{1}.T0R'.format(config_path, self.chid)) as file:
+                    tor = file.readlines()
+            except FileNotFoundError:
+                raise ValueError('[ERROR] Torsion file not found')
+
+        # looking for start of torsion results regexp in TEM file
+        try:
+            tor_index = tor.index('         w\n')
+        except ValueError:
+            raise ValueError('[ERROR] Torsion results not found in the TOR')
+
+        # compare the number of elements
+        for l in tor:
+            if 'NFIBERBEAM' in l:
+                n_tor = int(l.split()[-1])
+                break
+
+        with open(self.profile_pth) as file:
+            init = file.readlines()
+        for l in init:
+            if 'ELEMENTS' in l:
+                n_in = int(init[init.index(l)+1].split()[-1])
+
+        # ERROR if differences found
+        if n_in == n_tor:
+            print('[INFO] Config profile matches!')
+        else:
+            raise ValueError('[ERROR] {0} profile you use does not match {0} you put in config path ({1})'.format(
+                self.chid, self.config_path))
 
     # changing input file form iso curve to natural fire mode
     def change_in(self):
@@ -390,6 +432,7 @@ def main(model, calc_type='s3dt2d', path='.'):
         chdir(wd)
 
 
+# when fdsafir.py called by multi.py script of McSteel or when '-s'/'--scripted' flag used
 def scripted(safir_path, config_path, results_path):
     for case in scandir('{}\worst'.format(results_path)):
         chdir(case.path)
@@ -410,6 +453,7 @@ def scripted(safir_path, config_path, results_path):
                 t.alias = chid
                 t.change_in()
                 run_safir(chid, safir_path, mcsteel=True)
+                t.check_config_tor(config_path)
                 t.insert_tor(config_path)
                 del t
 
