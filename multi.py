@@ -234,7 +234,7 @@ class Queue:
             chdir('..')
 
             # save results every 5 %  of progress (to avoid the "Fail to allocate bitmap" error)
-            if x % int(l/20) == 0:
+            if (x+1) % int(l/20) == 0:
                 self.save_res(results, export.temp_crit(self.user['miu']))
                 results.clear()
 
