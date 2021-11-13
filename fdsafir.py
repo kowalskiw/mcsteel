@@ -99,6 +99,12 @@ class Thermal:
             self.sections = sections('{0}\\{1}.gid\\{1}'.format(self.path, self.frame))
             self.scripted = False
 
+    def is_in_structural(self):
+        if self.chid in self.sections:
+            return True
+
+        return False
+
     def check_config_tor(self, config_path):
         # find profile 'chid' in config files and open .gid catalogue if possible
         path = '{0}\\{1}.gid\\{1}-'.format(config_path, self.profile_pth)
@@ -136,7 +142,7 @@ class Thermal:
             print('[INFO] Config profile matches!')
         else:
             raise ValueError('[ERROR] {0} profile you use does not match {0} you put in config path ({1})'.format(
-                self.chid, self.config_path))
+                self.chid, config_path))
 
     # changing input file form iso curve to natural fire mode
     def change_in(self):
@@ -308,6 +314,10 @@ class Thermal:
             if not self.model == 'F20':
                 self.copy_ess()
             try:
+                if not self.is_in_structural():
+                    print('[WARNING] The {} profile is not found in the Structural 3D .IN file. Passing the scenario'
+                          ''.format(self.chid))
+                    return False
                 self.change_in()
                 run_safir(self.chid)
                 self.insert_tor()
