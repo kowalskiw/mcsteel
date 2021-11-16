@@ -49,107 +49,80 @@ def user_config(user_file):
 
 
 # find profile - first element relation in SAFIR S3D file (i.e. HEA180.tem-b_0001.tem)
-# creates dict {'profile_no':[section_name, section_line_no, 'bXXXXX.tem'], ...}
+# creates beam dict {'profile_no':[section_name, section_line_no, 'bXXXXX.tem'], ...}
+# creates shell dict {'profile_no':[section_name, section_line_no, 'sXXXXX.tem'], ...}
+
 def sections(frame):
     with open('{}.in'.format(frame)) as file:
         frame_lines = file.readlines()
 
     tems = {}
     c = 1
-    for n in range(len(frame_lines)):  # sections TEM files
+    tshs = {}
+    d = 1
+    beam_read = False
+    shell_read = False
+
+    for n in range(len(frame_lines)):  # find sections files
         l = frame_lines[n]  # line of frame.in file
-        if '.tem' in l:
+
+        if '.tem' in l:  # beam TEM files
             tems[str(c)] = [l[:-1], n]
             c += 1
-        if '      ELEM' in l:
+
+        elif '.tsh' in l:  # shell TSH files
+            tshs[str(d)] = [l[:-1], n]
+            d += 1
+
+        elif 'NDOFBEAM' in l:
+            beam_read = True
+        elif 'NDOFSHELL' in l:
+            beam_read = False
+            shell_read = True
+
+        elif '      ELEM' in l:  # add first element name to each profile
             element = l.split()
             if len(tems[element[-1]]) < 3:
                 number = element[1]
                 for i in range(5 - len(number)):
                     number = '0{}'.format(number)
-                tems[element[-1]].append('b{}_1.tem'.format(number))
+                if beam_read:
+                    tems[element[-1]].append('b{}_1.tem'.format(number))
+                elif shell_read:
+                    tshs[element[-1]].append('s{}_1.tem'.format(number))
 
-    return tems
+    return tems, tshs
 
 
 '''Safir_thermal2D analyses'''
 
 
 class Thermal:
-    def __init__(self, chid: str, model: str, frame_chid: str = 'default', profile_pth: str = 'default',
-                 time_end: str = 1800, scripted=False):
+    def __init__(self, chid: str, model: str, time_end: str = 1800):
         self.chid = ''.join(chid.split('.')[:-1]) if chid.endswith('.in') or chid.endswith('.gid') else chid
         self.model = model
         self.path = getcwd()
         self.t_end = time_end
 
-        if scripted:
-            print('[INFO] scripted mode - multisimulations')
-            self.frame = frame_chid
-            self.profile_pth = profile_pth
-            self.alias = 'safir'
-            self.sections = sections(self.frame)
-            self.scripted = True
-
-        else:
-            print('[INFO] Default mode - single fdsafir.py simulation')
-            self.frame = '{}'.format('frame')
-            self.profile_pth = '{0}\{1}.gid\{1}.in'.format(self.path, self.chid)
-            self.alias = self.chid
-            self.sections = sections('{0}\\{1}.gid\\{1}'.format(self.path, self.frame))
-            self.scripted = False
+        info = '[INFO] Default mode - single fdsafir.py simulation'
+        self.frame = '{}'.format('frame')
+        self.profile_pth = '{0}\{1}.gid\{1}.in'.format(self.path, self.chid)
+        self.alias = self.chid
+        self.tems, self.tshs = sections('{0}\\{1}.gid\\{1}'.format(self.path, self.frame))
+        self.path_prefix = '{}\{}\\'.format(self.path, self.chid)
 
     def is_in_structural(self):
-        if self.chid in self.sections:
+        if self.chid in self.tems:
             return True
 
         return False
-
-    def check_config_tor(self, config_path):
-        # find profile 'chid' in config files and open .gid catalogue if possible
-        path = '{0}\\{1}.gid\\{1}-'.format(config_path, self.profile_pth)
-        try:
-            with open('{0}\{1}.gid\{1}-1.T0R'.format(config_path, self.chid)) as file:
-                tor = file.readlines()
-
-        except FileNotFoundError:
-            try:
-                with open('{0}\{1}.T0R'.format(config_path, self.chid)) as file:
-                    tor = file.readlines()
-            except FileNotFoundError:
-                raise ValueError('[ERROR] Torsion file not found')
-
-        # looking for start of torsion results regexp in TEM file
-        try:
-            tor_index = tor.index('         w\n')
-        except ValueError:
-            raise ValueError('[ERROR] Torsion results not found in the TOR')
-
-        # compare the number of elements
-        for l in tor:
-            if 'NFIBERBEAM' in l:
-                n_tor = int(l.split()[-1])
-                break
-
-        with open(self.profile_pth) as file:
-            init = file.readlines()
-        for l in init:
-            if 'ELEMENTS' in l:
-                n_in = int(init[init.index(l)+1].split()[-1])
-
-        # ERROR if differences found
-        if n_in == n_tor:
-            print('[INFO] Config profile matches!')
-        else:
-            raise ValueError('[ERROR] {0} profile you use does not match {0} you put in config path ({1})'.format(
-                self.chid, config_path))
 
     # changing input file form iso curve to natural fire mode
     def change_in(self):
         with open(self.profile_pth) as file:
             init = file.readlines()
 
-        with open('{}.backup'.format(self.alias), 'w') as file:
+        with open('{}.bak'.format(self.alias), 'w') as file:
             file.writelines(init)
 
         # make changes
@@ -166,9 +139,22 @@ class Thermal:
                     init[n] = 'MAKE.TEMHA\n'
 
                 # insert beam type
-                for k, v in self.sections.items():
+                for k, v in self.tems.items():
                     if v[0][:-4] == self.alias:
                         [init.insert(n + 1, i) for i in ['BEAM_TYPE {}\n'.format(k), '{}.in\n'.format(self.frame)]]
+
+            elif l == 'MAKE.TSH\n':
+                if self.model == 'CFD':
+                    init[n] = 'MAKE.TSHCD\n'
+                elif self.model in {'LCF', 'LOCAFI'}:
+                    raise ValueError('[ERROR] It is not possible to calculate shell elements with LOCAFI fire model')
+                elif self.model in {'HSM', 'HASEMI'}:
+                    init[n] = 'MAKE.TSHHA\n'
+
+                # insert shell type
+                for k, v in self.tems.items():
+                    if v[0][:-4] == self.alias:
+                        [init.insert(n + 1, i) for i in ['SHELL_TYPE {}\n'.format(k), '{}.in\n'.format(self.frame)]]
 
             # change thermal load
             elif l.startswith('   F  ') and 'FISO' in l:  # choose heating boundaries with FISO or FISO0frontier
@@ -204,7 +190,7 @@ class Thermal:
             # change T_END
             elif ('TIME' in l) and ('END' not in l):
                 try:
-                    init[n+1] = '    '.join([init[n+1].split()[0], str(self.t_end), '\n'])
+                    init[n + 1] = '    '.join([init[n + 1].split()[0], str(self.t_end), '\n'])
                 except IndexError:
                     pass
 
@@ -234,15 +220,12 @@ class Thermal:
         if self.model == ('ISO' or 'F20'):
             first_b = self.chid + '.tem'
         else:
-            for v in self.sections.values():
+            for v in self.tems.values():
                 if v[0][:-4] == self.chid:
                     first_b = v[-1]
         # check if torsion results already are in TEM file
         try:
-            if self.scripted:
-                file_path = '{}\{}'.format(self.path, first_b)
-            else:
-                file_path = '{}\{}.gid\{}'.format(self.path, self.chid, first_b)
+            file_path = '{}\{}'.format(self.path_prefix, first_b)
 
             with open(file_path) as file:
                 tem = file.readlines()
@@ -283,12 +266,8 @@ class Thermal:
                         break
 
             # pasting torsion results
-            if self.scripted:
-                with open(file_path, 'w') as file:
-                    file.writelines(tem_with_tor)
-            else:
-                with open('{}\{}.gid\{}'.format(self.path, self.chid, first_b), 'w') as file:
-                    file.writelines(tem[:tem_index] + tor[tor_index:-1] + tem[tem_index:])
+            with open(file_path, 'w') as file:
+                file.writelines(tem_with_tor)
             # chdir('..')
             print('[OK] Torsion results copied to the TEM')
 
@@ -326,6 +305,19 @@ class Thermal:
                 raise ValueError('[ERROR] change_in not possible')
 
 
+class ThermalScripted(Thermal):
+    def __init__(self, chid: str, model: str, frame_chid: str = 'default', profile_pth: str = 'default',
+                 time_end: str = 1800):
+        super().__init__(chid, model, time_end)
+
+        info = '[INFO] scripted mode - multisimulations'
+        self.frame = frame_chid
+        self.profile_pth = profile_pth
+        self.alias = 'safir'
+        self.tems, self.tshs = sections(self.frame)
+        self.path_prefix = self.path
+
+
 '''Safir_structural3D analyses'''
 
 
@@ -340,7 +332,7 @@ class Mechanical:
         with open('{}.in'.format(self.frame)) as file:
             init = file.readlines()
 
-        with open('{}.backup'.format(self.frame.rsplit('.')[-1]), 'w') as file:
+        with open('{}.bak'.format(self.frame.rsplit('.')[-1]), 'w') as file:
             file.writelines(init)
 
         if self.model == 'COLD':
@@ -352,8 +344,11 @@ class Mechanical:
                     init.remove(l)
         else:
             # change TEM names in IN file
-            tems = sections(self.frame)
+            tems, tshs = sections(self.frame)
             for v in tems.values():
+                init[v[1]] = '{}\n'.format(v[-1])
+            # change TSH names in IN file
+            for v in tshs.values():
                 init[v[1]] = '{}\n'.format(v[-1])
 
         with open('{}.in'.format(self.frame), 'w') as file:
@@ -382,11 +377,89 @@ class Mechanical:
             print('\n [OK] Natural fire Structural 3D analysis finished\n\n')
 
 
+class CheckConfig:
+    def __init__(self, config_path: str, scenario_path: str):
+        self.paths = [config_path, scenario_path]
+
+    def t0r_vs_in(self, chid):
+        tor = False
+        # find profile 'chid' in config files and open T0R file .gid catalogue if possible
+        for p in ['{0}\{1}.gid\{1}-1.T0R'.format(self.paths[0], chid),
+                  '{0}\{1}.T0R'.format(self.paths[0], chid),
+                  '{0}\{1}-1.T0R'.format(self.paths[0], chid),
+                  '{0}\{1}.t0r'.format(self.paths[0], chid),
+                  '{0}\{1}-1.t0r'.format(self.paths[0], chid)]:
+            try:
+                with open(p) as file:
+                    tor = file.readlines()
+                break
+            except FileNotFoundError:
+                continue
+
+        if not tor:
+            return ['[ERROR] Torsion file of "{}" profile was not found'.format(chid)]
+
+        # looking for start of torsion results regexp in TEM file
+        try:
+            tor_index = tor.index('         w\n')
+        except ValueError:
+            return ['[ERROR] Torsion results were not found in "{}" TOR file'.format(chid)]
+
+        # find the number of elements in torsion file
+        for l in tor:
+            if 'NFIBERBEAM' in l:
+                n_tor = int(l.split()[-1])
+                break
+
+        # find the number of elements in initial file of thermal analysis
+        with open('{}\{}.in'.format(self.paths[1], chid)) as file:
+            init = file.readlines()
+        for l in init:
+            if 'ELEMENTS' in l:
+                n_in = int(init[init.index(l) + 1].split()[-1])
+
+        # ERROR if differences found
+        if n_in != n_tor:
+            return ['{0} profile you use does not match {0} you put in config path ({1})'.format(chid, self.paths[0])]
+
+        return 0
+
+    def in_names(self, chid):
+        info = []
+        if any(forb in chid for forb in ['.', ' ', ]):
+            info.append('Filename consists of forbidden characters ("." or " ")')
+        if chid.lower() != chid:
+            info.append('Filename need to be lowercase')
+
+        return info
+
+    def nfiber(self):
+        # check if nfiber is correctly set
+        # repair if necessary
+        return []
+
+    def check(self):
+        for f in scandir(self.paths[1]):
+            name = f.name
+            in_splt = name.split('.in')
+            chid = in_splt[0]
+            info = []
+
+            # check thermal
+            if chid != 'frame':
+                info.extend(self.t0r_vs_in(chid))
+                info.extend(self.nfiber())
+            info.extend(self.in_names(chid))
+
+            if len(info) > 0:
+                raise ValueError('[ERROR] While checking your input files I found some mistakes:\n', '\n'.join(info))
+
+
 # running SAFIR simulation in shell
-def run_safir(in_file, safir='C:\SAFIR', mcsteel=False):
+def run_safir(in_file, safir='C:\SAFIR', gid_style=False):
     safir_path = '{}\safir.exe'.format(safir)
 
-    if mcsteel:
+    if not gid_style:
         chid = in_file.split('.')[0]
     else:
         chid = in_file
@@ -407,7 +480,7 @@ def run_safir(in_file, safir='C:\SAFIR', mcsteel=False):
     except IndexError:
         print('[OK] SAFIR finished {} calculations'.format(chid))
 
-    chdir('..') if not mcsteel else 0
+    chdir('..') if not gid_style else 0
 
 
 def main(model, calc_type='s3dt2d', path='.'):
@@ -447,11 +520,13 @@ def scripted(safir_path, config_path, results_path):
     for case in scandir('{}\worst'.format(results_path)):
         chdir(case.path)
 
+        CheckConfig(config_path, case.path).check()
+
         with open('frame.in') as frame:
             f = frame.readlines()
             for i in range(len(f)):
                 if 'TIME' in f[i]:
-                    t_end = f[i+1].split()[1]
+                    t_end = f[i + 1].split()[1]
                     break
         # Thermal 2D analyses of profiles
         print('Running {} thermal analysis...'.format(case.name))
@@ -459,11 +534,10 @@ def scripted(safir_path, config_path, results_path):
             f = i.name
             if f.endswith('.in') and not f == 'frame.in':
                 chid = f[:-3]
-                t = Thermal(f, 'LCF', frame_chid='frame', profile_pth=f, time_end=t_end, scripted=True)
+                t = ThermalScripted(f, 'LCF', frame_chid='frame', profile_pth=f, time_end=t_end)
                 t.alias = chid
                 t.change_in()
-                run_safir(chid, safir_path, mcsteel=True)
-                t.check_config_tor(config_path)
+                run_safir(chid, safir_path)
                 t.insert_tor(config_path)
                 del t
 
@@ -471,7 +545,7 @@ def scripted(safir_path, config_path, results_path):
         print('Running {} mechanical analysis...'.format(case.name))
         m = Mechanical(case.name, 'NF', frame_pth='frame')
         m.change_in()
-        run_safir('frame', safir_path, mcsteel=True)
+        run_safir('frame', safir_path)
 
         print('[OK] {} scenario calculations finished!'.format(case.name))
 

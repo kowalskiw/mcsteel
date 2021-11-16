@@ -20,7 +20,7 @@ def t2d(chid, safir_dir_path):
     for i in scandir():
         if (not i.name.endswith('.in')) or i.name == '{}.in'.format(chid):
             continue
-        run_safir(i.name, safir=safir_dir_path, mcsteel=True)
+        run_safir(i.name, safir=safir_dir_path)
         break
 
 
