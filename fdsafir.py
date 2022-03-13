@@ -128,7 +128,6 @@ class Thermal:
         # make changes
         for n in range(len(init)):
             l = init[n]
-
             # type of calculation
             if l == 'MAKE.TEM\n':
                 if self.model == 'CFD':
@@ -376,83 +375,82 @@ class Mechanical:
             run_safir('frame')
             print('\n [OK] Natural fire Structural 3D analysis finished\n\n')
 
-
-class CheckConfig:
-    def __init__(self, config_path: str, scenario_path: str):
-        self.paths = [config_path, scenario_path]
-
-    def t0r_vs_in(self, chid):
-        tor = False
-        # find profile 'chid' in config files and open T0R file .gid catalogue if possible
-        for p in ['{0}\{1}.gid\{1}-1.T0R'.format(self.paths[0], chid),
-                  '{0}\{1}.T0R'.format(self.paths[0], chid),
-                  '{0}\{1}-1.T0R'.format(self.paths[0], chid),
-                  '{0}\{1}.t0r'.format(self.paths[0], chid),
-                  '{0}\{1}-1.t0r'.format(self.paths[0], chid)]:
-            try:
-                with open(p) as file:
-                    tor = file.readlines()
-                break
-            except FileNotFoundError:
-                continue
-
-        if not tor:
-            return ['[ERROR] Torsion file of "{}" profile was not found'.format(chid)]
-
-        # looking for start of torsion results regexp in TEM file
-        try:
-            tor_index = tor.index('         w\n')
-        except ValueError:
-            return ['[ERROR] Torsion results were not found in "{}" TOR file'.format(chid)]
-
-        # find the number of elements in torsion file
-        for l in tor:
-            if 'NFIBERBEAM' in l:
-                n_tor = int(l.split()[-1])
-                break
-
-        # find the number of elements in initial file of thermal analysis
-        with open('{}\{}.in'.format(self.paths[1], chid)) as file:
-            init = file.readlines()
-        for l in init:
-            if 'ELEMENTS' in l:
-                n_in = int(init[init.index(l) + 1].split()[-1])
-
-        # ERROR if differences found
-        if n_in != n_tor:
-            return ['{0} profile you use does not match {0} you put in config path ({1})'.format(chid, self.paths[0])]
-
-        return 0
-
-    def in_names(self, chid):
-        info = []
-        if any(forb in chid for forb in ['.', ' ', ]):
-            info.append('Filename consists of forbidden characters ("." or " ")')
-        if chid.lower() != chid:
-            info.append('Filename need to be lowercase')
-
-        return info
-
-    def nfiber(self):
-        # check if nfiber is correctly set
-        # repair if necessary
-        return []
-
-    def check(self):
-        for f in scandir(self.paths[1]):
-            name = f.name
-            in_splt = name.split('.in')
-            chid = in_splt[0]
-            info = []
-
-            # check thermal
-            if chid != 'frame':
-                info.extend(self.t0r_vs_in(chid))
-                info.extend(self.nfiber())
-            info.extend(self.in_names(chid))
-
-            if len(info) > 0:
-                raise ValueError('[ERROR] While checking your input files I found some mistakes:\n', '\n'.join(info))
+#
+# class CheckConfig:
+#     def __init__(self, config_path: str, scenario_path: str):
+#         self.paths = [config_path, scenario_path]
+#
+#     def t0r_vs_in(self, chid):
+#         tor = False
+#         # find profile 'chid' in config files and open T0R file .gid catalogue if possible
+#         for p in ['{0}\{1}.gid\{1}-1.T0R'.format(self.paths[0], chid),
+#                   '{0}\{1}.T0R'.format(self.paths[0], chid),
+#                   '{0}\{1}-1.T0R'.format(self.paths[0], chid),
+#                   '{0}\{1}.t0r'.format(self.paths[0], chid),
+#                   '{0}\{1}-1.t0r'.format(self.paths[0], chid)]:
+#             try:
+#                 with open(p) as file:
+#                     tor = file.readlines()
+#                 break
+#             except FileNotFoundError:
+#                 continue
+#
+#         if not tor:
+#             return ['[ERROR] Torsion file of "{}" profile was not found'.format(chid)]
+#
+#         # looking for start of torsion results regexp in TEM file
+#         try:
+#             tor_index = tor.index('         w\n')
+#         except ValueError:
+#             return ['[ERROR] Torsion results were not found in "{}" TOR file'.format(chid)]
+#
+#         # find the number of elements in torsion file
+#         for l in tor:
+#             if 'NFIBERBEAM' in l:
+#                 n_tor = int(l.split()[-1])
+#                 break
+#
+#         # find the number of elements in initial file of thermal analysis
+#         with open('{}\{}.in'.format(self.paths[1], chid)) as file:
+#             init = file.readlines()
+#         for l in init:
+#             if 'ELEMENTS' in l:
+#                 n_in = int(init[init.index(l) + 1].split()[-1])
+#
+#         # ERROR if differences found
+#         if n_in != n_tor:
+#             return ['{0} profile you use does not match {0} you put in config path ({1})'.format(chid, self.paths[0])]
+#
+#         return 0
+#
+#     def in_names(self, chid):
+#         info = []
+#         if any(forb in chid for forb in ['.', ' ', ]):
+#             info.append('Filename consists of forbidden characters ("." or " ")')
+#         if chid.lower() != chid:
+#             info.append('Filename need to be lowercase')
+#
+#         return info
+#
+#     def nfiber(self):
+#         # check if nfiber is correctly set
+#         # repair if necessary
+#         return []
+#
+#     def check(self):
+#         for f in scandir(self.paths[1]):
+#             name = f.name
+#             in_splt = name.split('.in')
+#             chid = in_splt[0]
+#
+#             # check thermal
+#             if chid != 'frame':
+#                 info.extend(self.t0r_vs_in(chid))
+#                 info.extend(self.nfiber())
+#             info.extend(self.in_names(chid))
+#
+#             if len(info) > 0:
+#                 raise ValueError('[ERROR] While checking your input files I found some mistakes:\n', '\n'.join(info))
 
 
 # running SAFIR simulation in shell
@@ -520,7 +518,7 @@ def scripted(safir_path, config_path, results_path):
     for case in scandir('{}\worst'.format(results_path)):
         chdir(case.path)
 
-        CheckConfig(config_path, case.path).check()
+        # CheckConfig(config_path, case.path).check()
 
         with open('frame.in') as frame:
             f = frame.readlines()

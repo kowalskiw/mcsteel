@@ -35,7 +35,12 @@ def mc_rand(csv):
 def f_localization(ffile):
     def random_position(xes, yes, zes):
         coordinates = []
-        [coordinates.append(random.randint(int(10 * i[0]), int(10 * i[1])) / 10) for i in [xes, yes, zes]]
+        try:
+            [coordinates.append(random.randint(int(10 * i[0]), int(10 * i[1])) / 10) for i in [xes, yes, zes]]
+        except ValueError:
+            print(xes, yes, zes)
+            [print(int(10 * i[0]), int(10 * i[1]) / 10) for i in [xes, yes, zes]]
+            exit(0)
         return coordinates
     fire_site = mc_rand(ffile)  # generate fire coordinates from MC function
     config = ffile.iloc[fire_site]  # information about chosen fuel site

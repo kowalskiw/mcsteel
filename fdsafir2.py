@@ -1,37 +1,42 @@
 import subprocess
 from time import time as sec
 from datetime import timedelta as dt
-from os import getcwd, chdir
+from os import getcwd, chdir, scandir
 from os.path import abspath as ap
 from os.path import isfile, basename, dirname
 from shutil import copy2
-from sys import  argv
+from sys import argv
 import argparse as ar
 
 
-# # print progress of process
-# def progress_bar(title, current, total, bar_length=20):
-#     percent = float(current) * 100 / total
-#     arrow = '-' * int(percent / 100 * bar_length - 1) + '>'
-#     spaces = ' ' * (bar_length - len(arrow))
-#
-#     print('%s: [%s%s] %d %%' % (title, arrow, spaces, percent), end='\r')
-#
-#
-# # return user configuration directory
-# def user_config(user_file):
-#     user = {}
-#     with open(user_file) as file:
-#         for line in file.readlines():
-#             splited = line.split()
-#             try:
-#                 value = float(splited[-1])
-#             except ValueError:
-#                 value = splited[-1]
-#             user[splited[0]] = value
-#     return user
-#
-import matplotlib.dates
+# print progress of process
+def progress_bar(title, current, total, bar_length=20):
+    percent = float(current) * 100 / total
+    arrow = '-' * int(percent / 100 * bar_length - 1) + '>'
+    spaces = ' ' * (bar_length - len(arrow))
+
+    print('%s: [%s%s] %d %%' % (title, arrow, spaces, percent), end='\r')
+
+
+# return user configuration directory
+def user_config(user_file):
+    user = {}
+    with open(user_file) as file:
+        for line in file.readlines():
+            splited = line.split()
+            try:
+                value = float(splited[-1])
+            except ValueError:
+                value = splited[-1]
+            user[splited[0]] = value
+    return user
+
+
+def out(file, line):
+    with open(file, 'a') as f:
+        f.write(line + '\n')
+    return line
+
 
 '''New, simpler and more object-oriented code'''
 
@@ -230,26 +235,6 @@ class ThermalTEM:
                     init[no] = 'FLUX {}'.format('NO'.join((thermal_attack.join(line[4:].split('FISO'))).split('F20')))
                     init.insert(no + 1, 'NO'.join(line.split('FISO')))
 
-                # if self.model in {'cfd', 'fds'}:
-                #     if 'F20' not in line:
-                #         init[no] = 'FLUX {}'.format('CFD'.join(line[4:].split('FISO')))
-                #     else:
-                #         init[no] = 'FLUX {}'.format('NO'.join(('CFD'.join(line[4:].split('FISO'))).split('F20')))
-                #         init.insert(no + 1, 'NO'.join(line.split('FISO')))
-                #
-                # elif self.model in {'lcf', 'locafi'}:
-                #     if 'F20' not in line:
-                #         init[no] = 'FLUX {}'.format('LOCAFI'.join(line[4:].split('FISO')))
-                #     else:
-                #         init[no] = 'FLUX {}'.format('NO'.join(('LOCAFI'.join(line[4:].split('FISO'))).split('F20')))
-                #         init.insert(no + 1, 'NO'.join(line.split('FISO')))
-                #
-                # elif self.model in {'hsm', 'hasemi'}:
-                #     if 'F20' not in line:
-                #         init[no] = 'FLUX {}'.format('HASEMI'.join(line[4:].split('FISO')))
-                #     else:
-                #         init[no] = 'FLUX {}'.format('NO'.join(('HASEMI'.join(line[4:].split('FISO'))).split('F20')))
-                #         init.insert(no + 1, 'NO'.join(line.split('FISO')))
 
             # change convective heat transfer coefficient of steel to 35 in locafi mode according to EN1991-1-2
             elif self.model in {'lcf', 'locafi', 'hsm', 'hasemi'} and 'STEEL' in line:
@@ -615,40 +600,40 @@ class Check:
             print('[OK] Config files seems to be OK')
 
 
-# # to be rewritten
-# # when fdsafir.py called by multi.py script of McSteel or when '-s'/'--scripted' flag used
-# def scripted(safir_path, config_path, results_path):
-#     for case in scandir('{}\worst'.format(results_path)):
-#         chdir(case.path)
-#
-#         CheckConfig(config_path, case.path).check()
-#
-#         with open('frame.in') as frame:
-#             f = frame.readlines()
-#             for i in range(len(f)):
-#                 if 'TIME' in f[i]:
-#                     t_end = f[i + 1].split()[1]
-#                     break
-#         # Thermal 2D analyses of profiles
-#         print('Running {} thermal analysis...'.format(case.name))
-#         for i in scandir():
-#             f = i.name
-#             if f.endswith('.in') and not f == 'frame.in':
-#                 chid = f[:-3]
-#                 t = ThermalScripted(f, 'LCF', frame_chid='frame', profile_pth=f, time_end=t_end)
-#                 t.alias = chid
-#                 t.change_in()
-#                 run_safir(chid, safir_path)
-#                 t.insert_tor(config_path)
-#                 del t
-#
-#         # Structural 3D analysis of the structure
-#         print('Running {} mechanical analysis...'.format(case.name))
-#         m = MechanicalScripted(frame_pth='frame')
-#         m.change_in()
-#         run_safir('frame', safir_path)
-#
-#         print('[OK] {} scenario calculations finished!'.format(case.name))
+# to be rewritten
+# when fdsafir.py called by multi.py script of McSteel or when '-s'/'--scripted' flag used
+def scripted(safir_path, config_path, results_path):
+    for case in scandir('{}\worst'.format(results_path)):
+        chdir(case.path)
+
+        CheckConfig(config_path, case.path).check()
+
+        with open('frame.in') as frame:
+            f = frame.readlines()
+            for i in range(len(f)):
+                if 'TIME' in f[i]:
+                    t_end = f[i + 1].split()[1]
+                    break
+        # Thermal 2D analyses of profiles
+        print('Running {} thermal analysis...'.format(case.name))
+        for i in scandir():
+            f = i.name
+            if f.endswith('.in') and not f == 'frame.in':
+                chid = f[:-3]
+                t = ThermalScripted(f, 'LCF', frame_chid='frame', profile_pth=f, time_end=t_end)
+                t.alias = chid
+                t.change_in()
+                run_safir(chid, safir_path)
+                t.insert_tor(config_path)
+                del t
+
+        # Structural 3D analysis of the structure
+        print('Running {} mechanical analysis...'.format(case.name))
+        m = MechanicalScripted(frame_pth='frame')
+        m.change_in()
+        run_safir('frame', safir_path)
+
+        print('[OK] {} scenario calculations finished!'.format(case.name))
 
 
 # run a single simulation with natural fire model
