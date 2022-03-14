@@ -84,7 +84,6 @@ class Thermal:
         self.t_end = time_end
 
         if scripted:
-            print('[INFO] scripted mode - multisimulations')
             self.frame = frame_chid
             self.profile_pth = profile_pth
             self.alias = 'safir'

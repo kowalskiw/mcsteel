@@ -45,7 +45,7 @@ class Single:
                 else:
                     columns.append(ent)
             x += 1
-        print(out(outpth, '[OK] Lines converted ({} s)'.format(round(sec()-start, 2))))
+        print(out(outpth, '[OK] Lines converted                  ({} s)'.format(round(sec()-start, 2))))
 
         # assign 3DFACE elements to shells table
         shells = [ent for ent in dxffile.entities if ent.dxftype == '3DFACE']
@@ -353,7 +353,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
     if simid_core % 2 != 0:  # check if odd
         simid_core += 1
 
-    print(out(outpth, '[OK] User configuration imported ({} s)'.format(round(sec()-start, 2))))
+    print(out(outpth, '[OK] User configuration imported             ({} s)'.format(round(sec()-start, 2))))
 
     sing = Single(title)
     gen = Generator(t_end, title, fire_type, fuelconfig)
@@ -393,6 +393,7 @@ def generate_sim(data_path):
     t = sec()
     chdir(config['results_path'])
     data_set = rcsv(data_path)
+    n = len(data_set.index)
     for i, r in data_set.iterrows():
         if r['profile'] != r['profile']:
             with open('{0}\{0}.err'.format(r['ID']), 'w') as err:
@@ -401,10 +402,11 @@ def generate_sim(data_path):
             print(out(outpth, mess))
             continue
         chdir(str(r['ID']))
+        progressBar('Preparing files', i, n)
         MultiT2D(config['time_end']).prepare(r)
         chdir('..')
 
-    return '[OK] {} simulation files created ({} s)'.format(len(data_set.index), round(sec() - t, 2))
+    return '[OK] {} simulation files created            ({} s)'.format(len(data_set.index), round(sec() - t, 2))
 
 
 if __name__ == '__main__':

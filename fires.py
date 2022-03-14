@@ -201,7 +201,8 @@ operates on the fire types included in the class - to be changed'''
 class Fire:
     def __init__(self, t_end, properties, fire_z, occupation):
         self.t_end = t_end  # duration of simulation
-        self.hrr_max = 3e8  # W model limitation of HRR
+        self.hrr_max = 50e6  # W model limitation of HRR
+        self.d_max = 10     # m model limitation of HRR
         self.config = properties
         self.fire_z = fire_z
         self.occ = occupation
@@ -237,6 +238,8 @@ class Fire:
 
             # calculate diameter, append
             diam_tab.append([t, 2 * (hrr_tab[-1][-1] / (hrrpua*1000*pi))**0.5])  # [time /s/, diameter /m/]
+            if diam_tab[-1][-1] > self.d_max:    # check if hrr_tab does not exceed model limitation
+                diam_tab[-1][-1] = self.d_max
 
         return hrr_tab, diam_tab, hrrpua, alpha
 
