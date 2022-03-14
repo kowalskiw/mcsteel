@@ -1,15 +1,92 @@
-import subprocess
 from time import time as sec
 from datetime import timedelta as dt
-from os import getcwd, chdir, scandir
+from datetime import datetime as dt1
 from os.path import abspath as ap
 from os.path import isfile, basename, dirname
+from os import chdir, getcwd
+import subprocess
 from shutil import copy2
 from sys import argv
 import argparse as ar
 
 
-# print progress of process
+# running SAFIR simulation
+def run_safir(in_file_path, safir_exe_path='C:\SAFIR\safir.exe', print_time=True, fix_rlx=True, verbose=False):
+    start = dt1.now()
+    print(f'[INFO] Calculations started at {start}') if print_time else None
+    backpath = getcwd()
+    dirpath = dirname(in_file_path)
+    chdir(dirpath)
+    chid = basename(in_file_path)[:-3]
+
+    print(f'Reading {chid}.in file...')
+    process = subprocess.Popen(' '.join([safir_exe_path, chid]), shell=False, stdout=subprocess.PIPE)
+    print_all = verbose
+    success = True
+    count = 0
+
+    # clear output
+    while True:
+        if process.poll() is not None:
+            break
+        try:
+            output = process.stdout.readline().strip().decode()
+        except UnicodeError:
+            continue
+        if output:
+            if print_all:
+                print('    ', output)
+            # check for errors
+            elif 'ERROR' in output or 'forrtl' in output:
+                print('[ERROR] FatalSafirError: ')
+                print_all = True
+                success = False
+                print('    ', output)
+            elif '======================' in output:
+                count += 1
+            # check for timestep
+            elif 'time' in output and print_time:
+                print(f'SAFIR started "{chid}" (sim #{count}) calculations: {output[7:]}', end='\r')
+
+    rc = process.poll()
+    chdir(backpath)
+
+    if not rc:
+        if success:
+            print(f'[OK] SAFIR finished {count} "{chid}" calculations at')
+            print(f'[INFO] Computing time: {dt1.now() - start}')
+            repair_relax(f'{dirpath}\\{chid}.XML') if fix_rlx else None
+            return 0
+        else:
+            print(f'[WARNING] SAFIR finished "{chid}" calculations with error!')
+            return -1
+
+
+# repair invalid relaxations results in XML file
+def repair_relax(path_to_xml, copyxml=True):
+    rlx_lines = []
+    index = 0
+    fixed = 0
+
+    with open(path_to_xml) as xmlfile:
+        for line in xmlfile:
+            if 'RLX' in line:
+                rlx_lines.append('0'.join('-1'.join(line.split('-0.100E+01')).split('0.000E+00')))
+                fixed += 1
+            else:
+                rlx_lines.append(line)
+
+            index += 1
+
+    with open(f'{path_to_xml[:-4]}_fixed.XML' if copyxml else path_to_xml, 'w') as newxml:
+        newxml.writelines(rlx_lines)
+
+    print(f'[OK] {fixed} XML file lines fixed (relaxations bug)')
+
+    return 0
+
+
+# print progress of the process
 def progress_bar(title, current, total, bar_length=20):
     percent = float(current) * 100 / total
     arrow = '-' * int(percent / 100 * bar_length - 1) + '>'
@@ -18,7 +95,14 @@ def progress_bar(title, current, total, bar_length=20):
     print('%s: [%s%s] %d %%' % (title, arrow, spaces, percent), end='\r')
 
 
-# return user configuration directory
+# append to the output file
+def out(outfile, line):
+    with open(outfile, 'a') as f:
+        f.write(line + '\n')
+    return line
+
+
+# return user configuration dict
 def user_config(user_file):
     user = {}
     with open(user_file) as file:
@@ -32,16 +116,31 @@ def user_config(user_file):
     return user
 
 
-def out(file, line):
-    with open(file, 'a') as f:
-        f.write(line + '\n')
-    return line
+class Config:
+    def __init__(self, user_filepath):
+        self.config = user_config(user_filepath)
+        self.title = self.config['title']
+        self.config_path = self.config['config_path']
+        self.results_path = self.config['results_path']
+        self.case_title = self.config['case_title']
+        self.safir_path = self.optional('safir_path')
+        self.fire_type = self.config['fire_type']
+        self.miu = self.optional('miu')
+        self.RSET = self.config['RSET']
+        self.max_iterations = self.optional('max_iterations')
+        self.stop_condition = self.config['stop_condition']
+        self.time_end = self.config['time_end']
+        self.fuel = self.config['fuel']
+        self.occupancy = self.optional('occupancy')
+
+    def optional(self, key):
+        try:
+            return self.config[key]
+        except KeyError:
+           return None
 
 
-'''New, simpler and more object-oriented code'''
-
-
-# find profile - first element relation in SAFIR S3D file (i.e. HEA180.tem-b_0001.tem)
+# find profile - first element relation in SAFIR S3D file (ent.e. HEA180.tem-b_0001.tem)
 # creates beam dict {'profile_no':[section_chid, section_line_no, 'bXXXXX.tem'], ...}
 # creates shell dict {'profile_no':[section_chid, section_line_no, 'sXXXXX.tem'], ...}
 def read_mech_input(path_to_frame):
@@ -77,6 +176,8 @@ def read_mech_input(path_to_frame):
 
         elif '      ELEM' in lin:  # add first element name to each profile
             element = lin.split()
+            if len(element) > 7:
+                continue
             if len(tems[element[-1]]) < 3:
                 number = element[1]
                 for i in range(5 - len(number)):
@@ -90,47 +191,6 @@ def read_mech_input(path_to_frame):
             t_end = float(frame_lines[no + 1].split()[1])
 
     return tems, tshs, t_end
-
-
-# running SAFIR simulation
-def run_safir(in_file_path, safir_exe_path='C:\SAFIR\safir.exe', print_time=True):
-    backpath = getcwd()
-    chdir(dirname(in_file_path))
-    chid = basename(in_file_path)[:-3]
-
-    process = subprocess.Popen(' '.join([safir_exe_path, chid]), shell=False, stdout=subprocess.PIPE)
-    print_all = False
-    success = True
-    while True:
-        if process.poll() is not None:
-            break
-        try:
-            output = process.stdout.readline().strip().decode()
-        except UnicodeError:
-            continue
-        if output:
-            if print_all:
-                print('    ', output)
-            # check for errors
-            elif 'ERROR' in output or 'forrtl' in output:
-                print('[ERROR] FatalSafirError: ')
-                print_all = True
-                success = False
-                print('    ', output)
-            # check for timestep
-            elif 'time' in output and print_time:
-                print('%s %s' % ('SAFIR started "{}" calculations: '.format(chid), output), end='\r')
-
-    rc = process.poll()
-    chdir(backpath)
-
-    if not rc:
-        if success:
-            print('[OK] SAFIR finished "{}" calculations at'.format(chid))
-            return 0
-        else:
-            print('[WARNING] SAFIR finished "{}" calculations with error!'.format(chid))
-            return -1
 
 
 # return the input file path regarding to GiD catalogues or files with no further directory tree
@@ -235,7 +295,6 @@ class ThermalTEM:
                     init[no] = 'FLUX {}'.format('NO'.join((thermal_attack.join(line[4:].split('FISO'))).split('F20')))
                     init.insert(no + 1, 'NO'.join(line.split('FISO')))
 
-
             # change convective heat transfer coefficient of steel to 35 in locafi mode according to EN1991-1-2
             elif self.model in {'lcf', 'locafi', 'hsm', 'hasemi'} and 'STEEL' in line:
                 init[no + 1] = '{}'.format('35'.join(init[no + 1].split('25')))
@@ -322,7 +381,7 @@ class ThermalTEM:
 
     # default calculations (preparations should have already been done)
     def run(self, safir_exe):
-        run_safir('{}\{}.in'.format(self.sim_dir, self.chid), safir_exe_path=safir_exe)
+        run_safir('{}\{}.in'.format(self.sim_dir, self.chid), safir_exe_path=safir_exe, fix_rlx=False)
         self.insert_tor()
 
 
@@ -451,7 +510,7 @@ class ThermalTSH:
 
     # default calculations (preparations should have already been done)
     def run(self, safir_exe):
-        run_safir('{}\{}.in'.format(self.sim_dir, self.chid), safir_exe_path=safir_exe)
+        run_safir('{}\{}.in'.format(self.sim_dir, self.chid), safir_exe_path=safir_exe, fix_rlx=False)
 
 
 class Mechanical:
@@ -494,7 +553,7 @@ class Mechanical:
                 if any(m in line for m in ['M_BEAM', 'M_NODE', 'MASS', 'END_MASS']):
                     init.remove(line)
 
-        # change TEM and TSH names in IN file (i.e. 'hea180.tem' -> 'b00001_1.tem')
+        # change TEM and TSH names in IN file (ent.e. 'hea180.tem' -> 'b00001_1.tem')
         else:
             for t in self.thermals:
                 init[t.line_no] = '{}\n'.format(t.first)
@@ -600,40 +659,40 @@ class Check:
             print('[OK] Config files seems to be OK')
 
 
-# to be rewritten
-# when fdsafir.py called by multi.py script of McSteel or when '-s'/'--scripted' flag used
-def scripted(safir_path, config_path, results_path):
-    for case in scandir('{}\worst'.format(results_path)):
-        chdir(case.path)
-
-        CheckConfig(config_path, case.path).check()
-
-        with open('frame.in') as frame:
-            f = frame.readlines()
-            for i in range(len(f)):
-                if 'TIME' in f[i]:
-                    t_end = f[i + 1].split()[1]
-                    break
-        # Thermal 2D analyses of profiles
-        print('Running {} thermal analysis...'.format(case.name))
-        for i in scandir():
-            f = i.name
-            if f.endswith('.in') and not f == 'frame.in':
-                chid = f[:-3]
-                t = ThermalScripted(f, 'LCF', frame_chid='frame', profile_pth=f, time_end=t_end)
-                t.alias = chid
-                t.change_in()
-                run_safir(chid, safir_path)
-                t.insert_tor(config_path)
-                del t
-
-        # Structural 3D analysis of the structure
-        print('Running {} mechanical analysis...'.format(case.name))
-        m = MechanicalScripted(frame_pth='frame')
-        m.change_in()
-        run_safir('frame', safir_path)
-
-        print('[OK] {} scenario calculations finished!'.format(case.name))
+# # to be rewritten
+# # when iso2nf.py called by multi.py script of McSteel or when '-s'/'--scripted' flag used
+# def scripted(safir_path, config_path, results_path):
+#     for case in scandir('{}\worst'.format(results_path)):
+#         chdir(case.path)
+#
+#         CheckConfig(config_path, case.path).check()
+#
+#         with open('frame.in') as frame:
+#             f = frame.readlines()
+#             for ent in range(len(f)):
+#                 if 'TIME' in f[ent]:
+#                     t_end = f[ent + 1].split()[1]
+#                     break
+#         # Thermal 2D analyses of profiles
+#         print('Running {} thermal analysis...'.format(case.name))
+#         for ent in scandir():
+#             f = ent.name
+#             if f.endswith('.in') and not f == 'frame.in':
+#                 chid = f[:-3]
+#                 t = ThermalScripted(f, 'LCF', frame_chid='frame', profile_pth=f, time_end=t_end)
+#                 t.alias = chid
+#                 t.change_in()
+#                 run_safir(chid, safir_path)
+#                 t.insert_tor(config_path)
+#                 del t
+#
+#         # Structural 3D analysis of the structure
+#         print('Running {} mechanical analysis...'.format(case.name))
+#         m = MechanicalScripted(frame_pth='frame')
+#         m.change_in()
+#         run_safir('frame', safir_path)
+#
+#         print('[OK] {} scenario calculations finished!'.format(case.name))
 
 
 # run a single simulation with natural fire model
@@ -641,25 +700,33 @@ def scripted(safir_path, config_path, results_path):
 def run_user_mode(sim_no, arguments):
     start = sec()
     m = Mechanical(arguments.results[sim_no], fire_model=arguments.model)
-    m.make_thermals(arguments.config)
-
-    # check the set up
-    Check(m).full_mech()
 
     # run thermal analyses
-    for t in m.thermals:
-        st = sec()
-        t.change_in(m.chid)
-        t.run(arguments.safir)
-        print('Runtime of "{}" thermal analysis: {}\n'.format(t.chid, dt(seconds=int(sec() - st))))
+    m.make_thermals(arguments.config)
+
+    if m.model in {'cfd', 'fds'}:
+        # enable using many cfd transfer files
+        ManyCfds(m.sim_dir, f'{arguments.config}/transfer_files/', m.input_file, arguments.safir).main()
+
+        print(f'Runtime of CFD-heating thermal analysis: {dt(seconds=int(sec() - start))}\n')
+
+    else:
+        # check the set up
+        Check(m).full_mech() if arguments.check else print('[WARNING] No checking routine applied')
+
+        for t in m.thermals:
+            st = sec()
+            t.change_in(m.chid)
+            t.run(arguments.safir)
+            print(f'Runtime of "{t.chid}" thermal analysis: {dt(seconds=int(sec() - st))}\n')
 
     # run mechanical analysis
     st = sec()
     m.change_in()
     m.run(arguments.safir)
-    print('Runtime of "{}" mechanical analysis: {}\n'.format(m.chid, dt(seconds=int(sec() - st))))
+    print(f'Runtime of "{m.chid}" mechanical analysis: {dt(seconds=int(sec() - st))}\n')
 
-    print('Summary "{}" runtime: {}\n'.format(m.chid, dt(seconds=int(sec() - start))))
+    print(f'Summary "{m.chid}" runtime: {dt(seconds=int(sec() - start))}\n')
 
 
 def get_arguments(from_argv):
@@ -671,11 +738,13 @@ def get_arguments(from_argv):
                                               'cfd/fds)', default='locafi')
     parser.add_argument('-r', '--results', nargs='+', help='Paths to mechanical analysis IN files (one scenario ->'
                                                            'one IN file)', required=True)
+    parser.add_argument('-ch', '--check', help='Running checking functions before analyzing (boolean)', default=False,
+                        nargs='?', const=True)
     argums = parser.parse_args(args=from_argv)
 
     # change paths to absolute
     for k in argums.__dict__:
-        if k == 'model':
+        if k in ['model', 'check']:
             continue
         try:
             argums.__dict__[k] = ap(argums.__dict__[k])
@@ -691,8 +760,8 @@ def get_arguments(from_argv):
 if __name__ == '__main__':
     first = argv[1]
 
-    print('\n====== Welcome to fdsafir2 ======\n fdsafir.py is one of the components of McSteel package.\n\n'
-          'I am trying to run your case now. I will keep you updated on the progress. \n==================\n')
+    print('\n====== Welcome to iso2nf ======\n iso2nf.py is one of the components of fireeng-tools structural package.'
+          '\n\nI am trying to run your case now. I will keep you updated on the progress. \n==================\n')
 
     args = get_arguments(argv[1:])
 
@@ -700,5 +769,5 @@ if __name__ == '__main__':
         run_user_mode(n, args)
 
     print('\n==================\nThank you for using our tools. We will appreciate your feedback and bug reports'
-          ' on github: https://www.github.com/kowalskiw/mcsteel\n'
+          ' on github: https://www.github.com/kowalskiw/fireeng-tools\n'
           'Have a good day!\n==================\n')

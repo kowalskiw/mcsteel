@@ -4,50 +4,6 @@ from math import exp
 from steputils import p21
 from os import scandir
 
-
-# triangular distribution sampler
-def triangular(left, right, mode=False):
-    if not mode:
-        mode = (right - left) / 3 + left
-    return random.triangular(left, mode, right)
-
-
-# drawn fire site among fuel area
-def mc_rand(csv):
-    ases = []   # list with partial factors A of each fuel area
-    probs = []  # list with probabilities of ignition in each fuel area
-
-    # calculate partial factor A (area * probability) of each fuel area
-    for i, r in csv.iterrows():
-        a = (r['XB'] - r['XA']) * (r['YB'] - r['YA']) * r['MC']
-        ases.append(a)
-
-    # calculate probability of ignition in each fuel area
-    for a in ases:
-        probs.append(a/sum(ases))
-
-    # return drawn fuel area
-    return random.choice(len(probs), p=probs)
-
-
-# drawn fire localization
-# cwd == confg_path
-def f_localization(ffile):
-    def random_position(xes, yes, zes):
-        coordinates = []
-        try:
-            [coordinates.append(random.randint(int(10 * i[0]), int(10 * i[1])) / 10) for i in [xes, yes, zes]]
-        except ValueError:
-            print(xes, yes, zes)
-            [print(int(10 * i[0]), int(10 * i[1]) / 10) for i in [xes, yes, zes]]
-            exit(0)
-        return coordinates
-    fire_site = mc_rand(ffile)  # generate fire coordinates from MC function
-    config = ffile.iloc[fire_site]  # information about chosen fuel site
-
-    return config, random_position((config.XA, config.XB), (config.YA, config.YB), zes=(config.ZA, config.ZB))
-
-
 '''Import fuel configuration from STEP (geometrical distribution) and FUEL (data)
 - to be merged with Properties config
 
@@ -199,84 +155,87 @@ class FuelOBJ(Fuel):
         return self.merge_data(fuel)  # merge with .FUL config type
 
 
+class OldFuel(Fuel):
+    def read_fuel(self):
+        print('[ERROR] This fuel format is not working yet')
+        exit(-1)
+
+
 '''Draw fire config from input distributions
 operates on the fire types included in the class - to be changed'''
 
 
-class Fire:
-    def __init__(self, t_end, properties, fire_z, occupation):
+class AlfaT2:
+    def __init__(self, t_end, alpha, hrrpua):
         self.t_end = t_end  # duration of simulation
-        self.hrr_max = 3e8  # W model limitation of HRR
-        self.config = properties
-        self.fire_z = fire_z
-        self.occ = occupation
-
-    # calculate HRRPUA according to triangular distribution specified by user
-    def hrrpua(self):
-        upward = self.config.ZB - self.fire_z
-        downward = self.fire_z - self.config.ZA
-        reduction = (upward + downward/10) / self.config.hrrpua_height  # scale HRRPUA acc. to NFPA204 (1/10 downwards)
-        return reduction * triangular(self.config.hrrpua_min, self.config.hrrpua_max, mode=self.config.hrrpua_mode)
-
-    # calculate ALPHA according to the experimental log-norm or user's triangular distribution
-    def alpha(self, hrrpua):
-        if not self.occ:
-            return triangular(self.config.alpha_min, self.config.alpha_max, mode=self.config.alpha_mode)  # [kW/s2]
-        elif self.occ == 'store':
-            return hrrpua * random.lognormal(-9.72, 0.97)  # [kW/s2]
+        self.hrr_max = 5e7  # W model limitation of HRR
+        self.d_max = 10     # [m] model limitation of diameter
+        self.alpha = alpha
+        self.hrrpua = hrrpua
 
     # t-squared fire
     def t_squared(self):
-        hrrpua = self.hrrpua()     # [kW/m2]
-        alpha = self.alpha(hrrpua)      # [kW/s2]
-
         hrr_tab = []
         diam_tab = []
         for i in range(0, 99):
             t = int(self.t_end * i/98)
 
             # calculate HRR, append
-            hrr_tab.append([t, round(alpha * (t ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
+            hrr_tab.append([t, round(self.alpha * (t ** 2) * 1000, 4)])  # [time /s/, HRR /W/]
             if hrr_tab[-1][-1] > self.hrr_max:    # check if hrr_tab does not exceed model limitation
                 hrr_tab[-1][-1] = self.hrr_max
 
             # calculate diameter, append
-            diam_tab.append([t, 2 * (hrr_tab[-1][-1] / (hrrpua*1000*pi))**0.5])  # [time /s/, diameter /m/]
+            diam_tab.append([t, 2 * (hrr_tab[-1][-1] / (self.hrrpua*1000*pi))**0.5])  # [time /s/, diameter /m/]
+            if diam_tab[-1][-1] > self.d_max:    # check if diam_tab does not exceed model limitation
+                diam_tab[-1][-1] = self.d_max
 
-        return hrr_tab, diam_tab, hrrpua, alpha
+        return hrr_tab, diam_tab
 
-    def change(self, time_crit, tab, value_crit):
-        #t_squared
-        return tab
+    def change(self, hrr_tab, d_tab):
+        # as is
+        return hrr_tab, d_tab
 
     def burn(self):
-        hrr_tab, diam_tab, hrrpua, alpha = self.t_squared()
-        q_0 = round(alpha * (self.config.t_sprink ** 2) * 1000, 4)
+        hrr_tab, diam_tab = self.t_squared()
 
-        changed_tabs = [self.change(self.config.t_sprink, *tab) for tab in
-                        [(hrr_tab, q_0), (diam_tab, (q_0 / (hrrpua * 1000 * pi)) ** 0.5)]]
+        changed_tabs = [self.change(*tab) for tab in [hrr_tab, diam_tab]]
 
-        return changed_tabs[0], changed_tabs[1], hrrpua, alpha
+        return changed_tabs[0], changed_tabs[1]
 
 
-class SprinkNoEff(Fire):
+class SprinkNoEff(AlfaT2):
+    def __init__(self, t_end, alpha, hrrpua, sprink_time):
+        super().__init__(t_end, alpha, hrrpua)
+        self.sprink_time = sprink_time
+
     # modify t-squared curve to taking non-effective sprinklers into account
-    def change(self, time_crit, tab, value_crit):
-        for i in range(len(tab)):
-            if tab[i][0] >= time_crit:
-                tab[i] = [tab[i][0], value_crit]
-        return tab
+    def change(self, hrr_tab, d_tab):
+        q_0 = round(self.alpha * (self.sprink_time ** 2) * 1000, 4)
+        d_0 = (q_0 / (self.hrrpua * 1000 * pi)) ** 0.5
+        for tab, lim in [(hrr_tab, q_0), (d_tab, d_0)]:
+            for i in range(len(tab)):
+                if tab[i][0] >= self.sprink_time:
+                    tab[i] = [tab[i][0], lim]
+        return hrr_tab, d_tab
 
 
-class SprinkEff(Fire):
+class SprinkEff(AlfaT2):
+    def __init__(self, t_end, alpha, hrrpua, sprink_time):
+        super().__init__(t_end, alpha, hrrpua)
+        self.sprink_time = sprink_time
+
     # modify t-squared curve to taking non-effective sprinklers into account
-    def change(self, time_crit, tab, value_crit, ):
-        value_limit = round(0.15 * value_crit)
-        for i in range(len(tab)):
-            if tab[i][0] >= time_crit:
-                value_red = round(value_crit * exp(-0.0024339414 * (tab[i][0] - self.config.t_sprink)), 4)
-                if value_red > value_limit:
-                    tab[i] = [tab[i][0], value_red]
-                else:
-                    tab[i] = [tab[i][0], value_limit]
-        return tab
+    def change(self, hrr_tab, d_tab):
+        q_0 = round(self.alpha * (self.sprink_time ** 2) * 1000, 4)
+        d_0 = (q_0 / (self.hrrpua * 1000 * pi)) ** 0.5
+        for tab, lim in [(hrr_tab, q_0), (d_tab, d_0)]:
+            lower_limit = round(0.15 * lim)
+            for i in range(len(tab)):
+                if tab[i][0] >= self.sprink_time:
+                    value_red = round(lim * exp(-0.0024339414 * (tab[i][0] - self.sprink_time)), 4)
+                    if value_red > lower_limit:
+                        tab[i] = [tab[i][0], value_red]
+                    else:
+                        tab[i] = [tab[i][0], lower_limit]
+        return hrr_tab, d_tab

@@ -438,7 +438,7 @@ class Generator:
             occupation = None
 
         if 'alfat2' in type:
-            f = fires.Fire(self.t_end, mc_params, self.fire_coords[2], occupation)
+            f = fires.AlfaT2(self.t_end, mc_params, self.fire_coords[2], occupation)
         elif 'sprink-eff' in type:
             f = fires.SprinkEff(self.t_end, mc_params, self.fire_coords[2], occupation)
         elif 'sprink-noeff' in type:

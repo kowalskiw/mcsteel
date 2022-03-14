@@ -1,4 +1,3 @@
-import time
 from time import time as sec
 from time import ctime
 import numpy as np
@@ -9,58 +8,39 @@ import core
 from os import makedirs, chdir, getcwd
 from shutil import copyfile
 import sys
-from fdsafir import Thermal, user_config, progressBar, out
+from numpy import random, pi
+
+from fdsafir2 import ThermalTEM, Config, progress_bar, out
 import fires
 
 global outpth
 
-'''Read geometry and map it to the fire (choose the most exposed sections)'''
 
+class FireScenario:
+    def __init__(self, config_object: Config, fire_properties, sprinkler_activation):
+        self.config = config_object  # config class
+        self.fire_location = fire_properties[2]  # [x, y, z]
+        self.alpha = fire_properties[0]  # [W/s^2]
+        self.hrrpua = fire_properties[1]  # [W/m^2]
+        self.sprinklers = sprinkler_activation      # [s]
+        self.profiles = []  # [profile1, profile2, profile3] profile1 = fdsafir2.ThermalTEM
+        self.fire_curve = [[], []]  # [[0,... time steps ... t_end], [HRR(0), ... HRR ... HRR(t_end)]]
+        self.fire_type = str  # fire curve function type form fires.Fires
+        self.mapped = []  # list of complete data for further calculations
 
-class Single:
-    def __init__(self, title):
-        self.title = title  # simulation title
-        self.prof_type = 'invalid profile type'  # type of steel profile
-        self.geometry = self.read_dxf()  # import geometry from DXF file
+    # map fire location with structure to find the most heated profiles to be analysed
+    def map(self, structure):
+        mapped = []  # complete set of data for profiles to be calculated in this scenario
 
-    # read dxf geometry
-    def read_dxf(self):
-        t1 = sec()
-
-        print(out(outpth, 'Reading DXF geometry...'), end='\r')
-        dxffile = dxf.readfile('{}.dxf'.format(self.title))
-        print(out(outpth, '[OK] DXF geometry imported ({} s)'.format(round(sec() - t1, 2))))
-
-        beams = []
-        columns = []
-        x = 0
-        t = len(dxffile.entities)
-        # assign LINES elements to columns or beams tables
-        start = sec()
-        for ent in dxffile.entities:
-            progressBar('Converting lines', x, t)
-            if ent.dxftype == 'LINE':
-                if ent.start[2] == ent.end[2]:
-                    beams.append(ent)
-                else:
-                    columns.append(ent)
-            x += 1
-        print(out(outpth, '[OK] Lines converted ({} s)'.format(round(sec()-start, 2))))
-
-        # assign 3DFACE elements to shells table
-        shells = [ent for ent in dxffile.entities if ent.dxftype == '3DFACE']
-
-        return {'b': beams, 'c': columns, 's': shells, 'f': []}
-
-    # map fire and geometry - choose fire scenario
-    def generate(self, f_coords, element):
+        # (*fire coords, *section coords, length of the fire-section vector, level of shell above the fire, profile,
+        # unit vector))
 
         # select the most exposed section among the lines and return its config
-        def map_lines():
+        def map_lines(element):
             # no element exception
-            lines = self.geometry['f']
+            lines = structure['f']
             if lines.__len__() == 0:
-                return (*f_coords, None, None, None, None, shell_lvl, None, None, None, None)
+                return *self.fire_location, None, None, None, None, shell_lvl, None, None, None, None
 
             d = 1e10  # infinitely large number
             closest = None
@@ -70,13 +50,13 @@ class Single:
             def vectors(line):
                 l_start = np.array(line.start)
                 l_end = np.array(line.end)
-                fire = np.array(f_coords)
+                fire = np.array(self.fire_location)
 
                 return l_start, l_end, fire, l_end - l_start, fire - l_start, fire - l_end, l_start - l_end
 
             # iterate over lines to select the closest to the fire
-            for l in lines:
-                v = vectors(l)
+            for line in lines:
+                v = vectors(line)
 
                 # orthogonal projection module
                 def cos_vec(v1, v2):
@@ -90,7 +70,7 @@ class Single:
                 # overwrite with analysed line if it is closer to the fire then the already chosen
                 if d_iter < d:
                     d = d_iter
-                    closest = l
+                    closest = line
             v = vectors(closest)  # generate vectors for selected line
             section = v[0] + (np.dot(v[4], v[3]) / np.dot(v[3], v[3])) * v[3]  # find the most exposed section coords
 
@@ -103,9 +83,9 @@ class Single:
                     section += [0, 0, 1.2]
                 else:
                     section[-1] = max([v[1][-1], v[0][-1]])
-            generated = (*f_coords, *section, d, shell_lvl, closest.layer.split('*')[0], *unit_v)
+            generated = (*self.fire_location, *section, d, shell_lvl, closest.layer.split('*')[0], *unit_v)
 
-            self.geometry['f'].clear()  # clear temporary layout 'foo'
+            structure['f'].clear()  # clear temporary layout 'foo'
 
             # fire coords(list), section coords(list), length of the fire-section vector(float),
             # level of shell above the fire(float), profile(string), unit vector
@@ -113,35 +93,35 @@ class Single:
 
         # remove elements beneath the fire base or above shell level from the lines
         # cut those between the values
-        def cut_lines(lines: list):
-            for l in lines:
+        def cut_lines():
+            for line in lines:
                 # start point cannot be higher than end point
-                if l.start[2] > l.end[2]:
-                    start_rev = l.end
-                    end_rev = l.start
-                    l.start = start_rev
-                    l.end = end_rev
+                if line.start[2] > line.end[2]:
+                    start_rev = line.end
+                    end_rev = line.start
+                    line.start = start_rev
+                    line.end = end_rev
 
-                z1 = l.start[2]
-                z2 = l.end[2]
+                z1 = line.start[2]
+                z2 = line.end[2]
                 # do not consider lines beneath the fire base or above the ceiling
-                if z2 <= f_coords[2] or z1 >= shell_lvl:
+                if z2 <= self.fire_location[2] or z1 >= shell_lvl:
                     continue
                 # accept lines in (fire base, ceiling) ranges
-                elif z1 > f_coords[2] and z2 < shell_lvl:
-                    self.geometry['f'].append(l)
+                elif z1 > self.fire_location[2] and z2 < shell_lvl:
+                    structure['f'].append(line)
                 # cut lines to (fire base, ceiling) ranges with 0.01 tolerance
                 else:
                     to_save = None
-                    if z1 <= f_coords[2]:
-                        to_save = l
-                        to_save.start = (l.start[0], l.start[1], f_coords[2] + 0.01)
+                    if z1 <= self.fire_location[2]:
+                        to_save = line
+                        to_save.start = (line.start[0], line.start[1], self.fire_location[2] + 0.01)
                     if z2 >= shell_lvl:
-                        to_save = l
-                        to_save.end = (l.end[0], l.end[1], shell_lvl - 0.01)
+                        to_save = line
+                        to_save.end = (line.end[0], line.end[1], shell_lvl - 0.01)
                     # check if line has non-zero length
                     if np.linalg.norm(np.array(to_save.start) - np.array(to_save.end)) > 0:
-                        self.geometry['f'].append(to_save)
+                        structure['f'].append(to_save)
 
         # checking if point consists in polygon (XY plane only)
         def ray_tracing_method(point: iter, poly: iter) -> bool:
@@ -169,26 +149,191 @@ class Single:
         shell_lvl = 1e5  # atmosphere bounds (here the space begins!)
 
         # check for shell (plate, ceiling) existing above the fire assign the level if true
-        for s in self.geometry['s']:
+        for s in structure['s']:
             lvl = s.points[0][2]  # read level from first point of shell
-            if float(f_coords[2]) <= lvl < shell_lvl and ray_tracing_method(f_coords, s.points):
+            if float(self.fire_location[2]) <= lvl < shell_lvl and ray_tracing_method(self.fire_location, s.points):
                 shell_lvl = lvl
 
-        # initialize mapping
-        if element == 'b':  # cut beams accordingly to Z in (fire_z - shell_lvl) range and map to relative
-            cut_lines(self.geometry['b'])
-        elif element == 'c':  # cut columns accordingly to Z in (fire_z - shell_lvl) range and map to relative
-            cut_lines(self.geometry['c'])
-        else:
-            raise ValueError('[ERROR] {} is not a valid element type (\'b\' or \'c\' required)'.format(element))
+        for element_type in ['b', 'c']:
+            lines = structure[element_type]  # choose beams or columns as lines
+            cut_lines()  # cut beams accordingly to Z in (fire_z - shell_lvl) range and map to relative
+            map_lines(element_type)
 
-        mapped = list(map_lines())
+            mapped.append(list(map_lines(element_type)))
 
-        self.prof_type = mapped[3]
+            self.profiles.append(mapped[3])
 
-        # (*fire coords, *section coords, length of the fire-section vector, level of shell above the fire, profile,
-        # unit vector))
         return mapped
+
+    def create_fire_curve(self):
+        # fire area is limited only by model limitation implemented to the fires.Properties
+        if 'alfat2' in self.fire_type:
+            f = fires.AlfaT2(self.config.time_end, self.alpha, self.hrrpua)
+        elif 'sprink-eff' in type:
+            f = fires.SprinkEff(self.config.time_end, self.alpha, self.hrrpua, self.sprinklers)
+        elif 'sprink-noeff' in type:
+            f = fires.SprinkNoEff(self.config.time_end, self.alpha, self.hrrpua, self.sprinklers)
+        else:
+            raise KeyError('[ERROR] {} is not a proper fire type'.format(self.fire_type))
+
+        self.fire_curve = f.burn()
+
+    # DO IT for all the calculations
+    def locafitxt(self):
+        # add data to LOCAFI.txt core
+        lcf = core.locafi.copy()
+
+        def ins(arg, index): return lcf[index].split('*')[0] + str(arg) + lcf[index].split('*')[1]
+
+        str_position = '{} {} {}'.format(*position)
+
+        lcf[2] = ins(str_position, 2)
+        lcf[3] = ins(, 3)
+
+        # add tables of hrr and diameter
+        def v2str(vector): return [str(i) for i in vector]
+
+        def add(start, tab): [lcf.insert(i + start, '    '.join(v2str(tab[i])) + '\n') for i in range(len(tab))]
+
+        add(lcf.index('DIAMETER\n') + 2, diam_tab)
+        add(lcf.index('RHR\n') + 2, hrr_tab)
+
+        # save locafi.txt to the dir
+        with open('locafi.txt', 'w+') as file:
+            file.writelines(lcf)
+
+
+# triangular distribution sampler
+def triangular(left, right, mode=False):
+    if not mode:  # default mode in 1/3 of the left-right distance
+        mode = (right - left) / 3 + left
+    return random.triangular(left, mode, right)
+
+
+class MCGenerator:
+    def __init__(self, config_object: Config):
+        self.config = config_object
+        self.n = 1000  # size of the sample
+        self.fuel = self.read_fuel()  # fuel distribution and properties
+        self.set = []  # set of fire scenarios
+
+    def read_fuel(self):
+        fuel_type = self.config.fuel.lower()
+        if fuel_type == 'obj':
+            return fires.FuelOBJ(self.config.title).read_fuel()
+        elif fuel_type == 'step':
+            return fires.Fuel(self.config.title).read_fuel()
+        else:
+            return fires.OldFuel(self.config.title).read_fuel()
+
+    def find_hrrpua(self, fire_z, properties):
+        # calculate HRRPUA according to triangular distribution specified by user
+        upward = properties.ZB - fire_z
+        downward = fire_z - properties.ZA
+        # scale HRRPUA acc. to NFPA204 (1/10 downwards)
+        reduction = (upward + downward / 10) / properties.hrrpua_height
+        return reduction * triangular(properties.hrrpua_min, properties.hrrpua_max, mode=properties.hrrpua_mode)
+
+    # calculate ALPHA according to the experimental log-norm or user's triangular distribution
+    def find_alpha(self, hrrpua, properties):
+        if 'store' in {self.config.occupancy, self.config.fire_type}:
+            return hrrpua * random.lognormal(-9.72, 0.97)  # [kW/s2]
+        else:
+            return triangular(properties.alpha_min, properties.alpha_max, mode=properties.alpha_mode)  # [kW/s2]
+
+    # find fire localization and properites of fuel in that place
+    def find_fire_origin(self):
+        def random_position(xes, yes, zes):
+            coordinates = []
+            try:
+                [coordinates.append(random.randint(int(10 * i[0]), int(10 * i[1])) / 10) for i in [xes, yes, zes]]
+            except ValueError:
+                print(xes, yes, zes)
+                [print(int(10 * i[0]), int(10 * i[1]) / 10) for i in [xes, yes, zes]]
+                exit(0)
+            return coordinates
+
+        # find the fuel actual_site within the fuel sites
+        def find_site(fuel_sites):
+            ases = []  # list with partial factors A of each fuel area
+            probs = []  # list with probabilities of ignition in each fuel area
+
+            # calculate partial factor A (area * probability) of each fuel area
+            for i, r in fuel_sites.iterrows():
+                a = (r['XB'] - r['XA']) * (r['YB'] - r['YA']) * r['MC']
+                ases.append(a)
+
+            # calculate probability of ignition in each fuel area
+            for a in ases:
+                probs.append(a / sum(ases))
+
+            # return drawn fuel area
+            return random.choice(len(probs), p=probs)
+
+        site_no = find_site(self.fuel)  # generate fire coordinates from MC function
+
+        site = self.fuel.iloc[site_no]  # information about chosen fuel actual_site
+
+        return site, random_position((site.XA, site.XB), (site.YA, site.YB), zes=(site.ZA, site.ZB))
+
+    def find_fire(self):
+        fuel_properties, fire_coordinates = self.find_fire_origin()
+        hrrpua = self.find_hrrpua(fire_coordinates[2], fuel_properties)
+        alpha = self.find_alpha(hrrpua, fuel_properties)
+        try:
+            sprink_act = fuel_properties.t_sprink
+        except KeyError:
+            sprink_act = None
+
+        return [alpha, hrrpua, fire_coordinates], sprink_act
+
+    def sampling(self):
+        for i in range(self.n):
+            self.set.append(FireScenario(self.config, *self.find_fire()))
+            if i == self.n / self.n % 20:
+                # save to f'{self.config.title}_set.csv'
+                pass
+
+
+class PrepareMulti:
+    def __init__(self, config_object: Config):
+        self.config = config_object
+        self.structure = self.read_dxf()
+
+    # read dxf geometry
+    def read_dxf(self):
+        t1 = sec()
+
+        print(out(outpth, 'Reading DXF geometry...'), end='\r')
+        dxffile = dxf.readfile('{}.dxf'.format(self.config.title))
+        print(out(outpth, '[OK] DXF geometry imported ({} s)'.format(round(sec() - t1, 2))))
+
+        beams = []
+        columns = []
+        x = 0
+        t = len(dxffile.entities)
+        # assign LINES elements to columns or beams tables
+        start = sec()
+        for ent in dxffile.entities:
+            progress_bar('Converting lines', x, t)
+            if ent.dxftype == 'LINE':
+                if ent.start[2] == ent.end[2]:
+                    beams.append(ent)
+                else:
+                    columns.append(ent)
+            x += 1
+        print(out(outpth, '[OK] Lines converted ({} s)'.format(round(sec() - start, 2))))
+
+        # assign 3DFACE elements to shells table
+        shells = [ent for ent in dxffile.entities if ent.dxftype == '3DFACE']
+
+        return {'b': beams, 'c': columns, 's': shells, 'f': []}
+
+    def do(self, set):
+       for i in set:
+           
+
+'''Monte Carlo module: drawing input data sets'''
 
 
 class Generator:
@@ -209,49 +354,7 @@ class Generator:
 
         print(out(outpth, '[OK] Fuel configuration imported ({} s)'.format(round(sec() - t, 2))))
 
-    # import fire config
-    def fire(self):
-        # fire area is limited only by model limitation implemented to the fires.Properties
-        mc_params, self.fire_coords = fires.f_localization(self.fuel)
-        try:
-            type, occupation = self.f_type.split('_')
-        except ValueError:
-            type = self.f_type
-            occupation = None
-
-        if 'alfat2' in type:
-            f = fires.Fire(self.t_end, mc_params, self.fire_coords[2], occupation)
-        elif 'sprink-eff' in type:
-            f = fires.SprinkEff(self.t_end, mc_params, self.fire_coords[2], occupation)
-        elif 'sprink-noeff' in type:
-            f = fires.SprinkNoEff(self.t_end, mc_params, self.fire_coords[2], occupation)
-        else:
-            raise KeyError('[ERROR] {} is not a proper fire type'.format(self.f_type))
-
-        return f.burn()
-
-    def locafitxt(self, position, hrr_tab, diam_tab, z_ceil):
-        # add data to LOCAFI.txt core
-        lcf = core.locafi.copy()
-
-        def ins(arg, index): return lcf[index].split('*')[0] + str(arg) + lcf[index].split('*')[1]
-
-        str_position = '{} {} {}'.format(*position)
-
-        lcf[2] = ins(str_position, 2)
-        lcf[3] = ins(z_ceil, 3)
-
-        # add tables of hrr and diameter
-        def v2str(vector): return [str(i) for i in vector]
-
-        def add(start, tab): [lcf.insert(i + start, '    '.join(v2str(tab[i])) + '\n') for i in range(len(tab))]
-
-        add(lcf.index('DIAMETER\n') + 2, diam_tab)
-        add(lcf.index('RHR\n') + 2, hrr_tab)
-
-        # save locafi.txt to the dir
-        with open('locafi.txt', 'w+') as file:
-            file.writelines(lcf)
+'''Preparing files for the multisimuation process'''
 
 
 class MultiT2D:
@@ -353,7 +456,7 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
     if simid_core % 2 != 0:  # check if odd
         simid_core += 1
 
-    print(out(outpth, '[OK] User configuration imported ({} s)'.format(round(sec()-start, 2))))
+    print(out(outpth, '[OK] User configuration imported ({} s)'.format(round(sec() - start, 2))))
 
     sing = Single(title)
     gen = Generator(t_end, title, fire_type, fuelconfig)
@@ -413,13 +516,13 @@ if __name__ == '__main__':
     with open(outpth, '+w') as f:
         f.write(ctime(sec()) + '\n')
     print(out(outpth, 'Reading user configuration...'), end='\r')
-    config = user_config(sys.argv[1])  # import multisimulation config
+    config = Config(sys.argv[1])  # import multisimulation config
     try:
-        makedirs(config['results_path'])  # create results directory
+        makedirs(config.results_path)  # create results directory
     except FileExistsError:
         pass
 
-    chdir(config['config_path'])  # change to config
+    chdir(config.config_path)  # change to config
 
     print(out(outpth, generate_set(config['max_iterations'], config['case_title'], config['time_end'],
                                    config['fire_type'], config['config_path'], config['results_path'], config['fuel'])))
