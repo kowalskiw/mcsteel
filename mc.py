@@ -1,11 +1,11 @@
 import os.path
+from os import makedirs
 from time import time as sec
 from time import ctime
 import numpy as np
 import dxfgrabber as dxf
 from pandas import DataFrame as df
 import core
-from os import makedirs
 from shutil import copy2
 import sys
 from numpy import random
@@ -211,7 +211,7 @@ def triangular(left, right, mode=False):
 class MCGenerator:
     def __init__(self, config_object: Config):
         self.config = config_object
-        self.n = 1000  # size of the sample
+        self.n = self.config.max_iterations if self.config.max_iterations else 100  # size of the sample
         self.fuel = self.read_fuel()  # fuel distribution and properties
         self.set = []
 
@@ -384,18 +384,31 @@ class PrepareMulti:
         ThermalTEM(1, [section_chid, [], []], self.config.config_path, 'lcf', self.config.time_end, dir_path).change_in(
             os.path.basename(dir_path))
 
-    def do(self):
-        # check if there are any elements above the fire source
-        def check_if_valid(row):
-            if row['profile'] != row['profile']:
-                with open(os.path.join(dir_path, f'{row["fire_id"]}_{row["calc_no"]}.err'), 'w') as err:
-                    mess = f'[WARNING] There are no structural elements above the fire base in the' \
-                           f' {row["fire_id"]}_{row["calc_no"]} fire scenario'
-                    err.write(f'{mess}\nMax element temperature in this scenario is equal to the ambient temperature')
-                print(out(outpth, mess))
-                return False
-            return True
+    # allows to prepare files in different location (i.e. node)
+    def prepare_files(self, chid, calc_data, locafi_lines):
+        dir_path = os.path.join(self.config.results_path, chid)
+        section_chid = calc_data[-4]
+        unit_vector = np.array(calc_data[-3:]).astype(float)  # section orientation - to be improved
 
+        # check if there are any elements above the fire source
+        if calc_data[-4] != calc_data[-4]:
+            with open(os.path.join(dir_path, f'{chid}.err'), 'w') as err:
+                mess = f'[WARNING] There are no structural elements above the fire base in the' \
+                       f' {chid} fire scenario'
+                err.write(f'{mess}\nMax element temperature in this scenario is equal to the ambient temperature')
+            print(out(outpth, mess))
+
+        makedirs(dir_path)
+
+        # save fire file to the directory
+        with open(os.path.join(dir_path, 'locafi.txt'), 'w') as lcffile:
+            lcffile.writelines(locafi_lines)
+
+        # create SAFIR files
+        self.copy_section(section_chid, dir_path)
+        self.write_dummy_structural(chid, section_chid, unit_vector)
+
+    def do(self):
         gen = MCGenerator(self.config)
         gen.sampling()
 
@@ -406,29 +419,20 @@ class PrepareMulti:
             scenario.prepare_locafi()
             scenario.map(self.structure)
             for c_no, calculation in enumerate(scenario.mapped):
-                dir_path = os.path.join(self.config.results_path, f'{s_no}_{c_no}')
-                section_chid = calculation[-4]
-                unit_vector = np.array(calculation[-3:]).astype(float)  # section orientation - to be improved
+                chid = f'{s_no}_{c_no}'
 
-                makedirs(dir_path)
-
-                # save fire file to the directory
-                with open(os.path.join(dir_path, 'locafi.txt'), 'w') as lcffile:
-                    lcffile.writelines(scenario.locafi_lines)
-
-                # create SAFIR files
-                self.copy_section(section_chid, dir_path)
-                self.write_dummy_structural(f'{s_no}_{c_no}', section_chid, unit_vector)
+                self.prepare_files(chid, calculation, scenario.locafi_lines)
 
                 # save this calculation data to the data frame
                 self.data_frame.loc[dfindex] = [s_no, c_no, ctime(sec())] + calculation
-                check_if_valid(self.data_frame.loc[dfindex])
                 dfindex += 1
 
             save_interval = gen.n / 20  # save 20 times
             if s_no % save_interval == 0 and s_no > 0:
                 self.writedf2csv(s_no - save_interval)
         print(out(outpth, f'[OK] {dfindex} file sets were prepared ({round(sec() - t, 2)}) s'))
+
+        return self.data_frame
 
 
 if __name__ == '__main__':

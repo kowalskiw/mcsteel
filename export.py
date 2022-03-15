@@ -64,11 +64,7 @@ def summary(data, t_crit, rset):
     # draw charts
     Charting(data, t_crit, rset, (p_collapse, p_evacfailed)).draw()
 
-    # check if uncertainty is low enough to stop calculations
-    if 0 < err[0] < 0.001 and 0 < err[1] < 0.001:
-        return True
-    else:
-        return False
+    return err
 
 
 if __name__ == '__main__':

@@ -1,14 +1,9 @@
 import os.path
-from time import time as sec
-from datetime import timedelta as dt
 from datetime import datetime as dt1
-from os.path import abspath as ap
 from os.path import isfile, basename, dirname
 from os import chdir, getcwd
 import subprocess
 from shutil import copy2
-from sys import argv
-import argparse as ar
 
 
 # running SAFIR simulation
@@ -143,7 +138,6 @@ class Config:
 
     def section_path(self, section_chid):
         return find_paths(self.config_path, section_chid, shell=False)[0]
-
 
 
 # find profile - first element relation in SAFIR S3D file (ent.e. HEA180.tem-b_0001.tem)
@@ -663,110 +657,3 @@ class Check:
             raise ValueError('[ERROR] {} simulation was improperly set up.'.format(self.mech.chid))
         else:
             print('[OK] Config files seems to be OK')
-
-
-# # to be rewritten
-# # when iso2nf.py called by multi.py script of McSteel or when '-s'/'--scripted' flag used
-# def scripted(safir_path, config_path, results_path):
-#     for case in scandir('{}\worst'.format(results_path)):
-#         chdir(case.path)
-#
-#         CheckConfig(config_path, case.path).check()
-#
-#         with open('frame.in') as frame:
-#             f = frame.readlines()
-#             for ent in range(len(f)):
-#                 if 'TIME' in f[ent]:
-#                     t_end = f[ent + 1].split()[1]
-#                     break
-#         # Thermal 2D analyses of profiles
-#         print('Running {} thermal analysis...'.format(case.name))
-#         for ent in scandir():
-#             f = ent.name
-#             if f.endswith('.in') and not f == 'frame.in':
-#                 chid = f[:-3]
-#                 t = ThermalScripted(f, 'LCF', frame_chid='frame', profile_pth=f, time_end=t_end)
-#                 t.alias = chid
-#                 t.change_in()
-#                 run_safir(chid, safir_path)
-#                 t.insert_tor(config_path)
-#                 del t
-#
-#         # Structural 3D analysis of the structure
-#         print('Running {} mechanical analysis...'.format(case.name))
-#         m = MechanicalScripted(frame_pth='frame')
-#         m.change_in()
-#         run_safir('frame', safir_path)
-#
-#         print('[OK] {} scenario calculations finished!'.format(case.name))
-
-
-# run a single simulation with natural fire model
-# (have to be already prepared/calculated for FISO)
-def run_user_mode(sim_no, arguments):
-    start = sec()
-    m = Mechanical(arguments.results[sim_no], fire_model=arguments.model)
-
-    # run thermal analyses
-    m.make_thermals(arguments.config)
-
-    # check the set up
-    Check(m).full_mech() if arguments.check else print('[WARNING] No checking routine applied')
-
-    for t in m.thermals:
-        st = sec()
-        t.change_in(m.chid)
-        t.run(arguments.safir)
-        print(f'Runtime of "{t.chid}" thermal analysis: {dt(seconds=int(sec() - st))}\n')
-
-    # run mechanical analysis
-    st = sec()
-    m.change_in()
-    m.run(arguments.safir)
-    print(f'Runtime of "{m.chid}" mechanical analysis: {dt(seconds=int(sec() - st))}\n')
-
-    print(f'Summary "{m.chid}" runtime: {dt(seconds=int(sec() - start))}\n')
-
-
-def get_arguments(from_argv):
-    parser = ar.ArgumentParser(description='Run SAFIR localised fire analysis automatically')
-
-    parser.add_argument('-c', '--config', help='Path to configuration directory', required=True)
-    parser.add_argument('-s', '--safir', help='Path to SAFIR executable', default='/safir.exe')
-    parser.add_argument('-m', '--model', help='Type of localised fire model to be used (hasemi/hsm or locafi/lcf or'
-                                              'cfd/fds)', default='locafi')
-    parser.add_argument('-r', '--results', nargs='+', help='Paths to mechanical analysis IN files (one scenario ->'
-                                                           'one IN file)', required=True)
-    parser.add_argument('-ch', '--check', help='Running checking functions before analyzing (boolean)', default=False,
-                        nargs='?', const=True)
-    argums = parser.parse_args(args=from_argv)
-
-    # change paths to absolute
-    for k in argums.__dict__:
-        if k in ['model', 'check']:
-            continue
-        try:
-            argums.__dict__[k] = ap(argums.__dict__[k])
-        except TypeError:
-            l = []
-            for p in argums.__dict__[k]:
-                l.append(ap(p))
-            argums.__dict__[k] = l
-
-    return argums
-
-
-if __name__ == '__main__':
-    first = argv[1]
-
-    print('\n====== Welcome to iso2nf ======\n iso2nf.py is one of the components of fireeng-tools structural package.'
-          '\n\nI am trying to run your case now. I will keep you updated on the progress. \n==================\n')
-
-    args = get_arguments(argv[1:])
-
-    for n in range(len(args.results)):
-        run_user_mode(n, args)
-
-    print('\n==================\nThank you for using our tools. We will appreciate your feedback and bug reports'
-          ' on github: https://www.github.com/kowalskiw/fireeng-tools\n'
-          'Have a good day!\n==================\n')
