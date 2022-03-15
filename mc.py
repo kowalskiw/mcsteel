@@ -1,14 +1,14 @@
+import os.path
 from time import time as sec
 from time import ctime
 import numpy as np
 import dxfgrabber as dxf
 from pandas import DataFrame as df
-from pandas import read_csv as rcsv
 import core
-from os import makedirs, chdir, getcwd
-from shutil import copyfile
+from os import makedirs
+from shutil import copy2
 import sys
-from numpy import random, pi
+from numpy import random
 
 from fdsafir2 import ThermalTEM, Config, progress_bar, out
 import fires
@@ -22,40 +22,42 @@ class FireScenario:
         self.fire_location = fire_properties[2]  # [x, y, z]
         self.alpha = fire_properties[0]  # [W/s^2]
         self.hrrpua = fire_properties[1]  # [W/m^2]
-        self.sprinklers = sprinkler_activation      # [s]
+        self.sprinklers = sprinkler_activation  # [s]
         self.profiles = []  # [profile1, profile2, profile3] profile1 = fdsafir2.ThermalTEM
         self.fire_curve = [[], []]  # [[0,... time steps ... t_end], [HRR(0), ... HRR ... HRR(t_end)]]
         self.fire_type = str  # fire curve function type form fires.Fires
         self.mapped = []  # list of complete data for further calculations
+        self.ceiling = 1e5  # level of ceiling above the fire source (here the space begins!)
+        self.locafi_lines = []  # lines for locafi.txt fire file
 
     # map fire location with structure to find the most heated profiles to be analysed
     def map(self, structure):
         mapped = []  # complete set of data for profiles to be calculated in this scenario
 
         # (*fire coords, *section coords, length of the fire-section vector, level of shell above the fire, profile,
-        # unit vector))
+        # *unit vector))
 
         # select the most exposed section among the lines and return its config
         def map_lines(element):
             # no element exception
-            lines = structure['f']
-            if lines.__len__() == 0:
-                return *self.fire_location, None, None, None, None, shell_lvl, None, None, None, None
+            lins = structure['f']
+            if lins.__len__() == 0:
+                return *self.fire_location, None, None, None, None, self.ceiling, None, None, None, None
 
             d = 1e10  # infinitely large number
             closest = None
 
             # return vectors for further calculations (line_start[0], line_end[1], fire[2], es[3], fs[4], fe[5], se[6])
             # find references
-            def vectors(line):
-                l_start = np.array(line.start)
-                l_end = np.array(line.end)
+            def vectors(single_line):
+                l_start = np.array(single_line.start)
+                l_end = np.array(single_line.end)
                 fire = np.array(self.fire_location)
 
                 return l_start, l_end, fire, l_end - l_start, fire - l_start, fire - l_end, l_start - l_end
 
             # iterate over lines to select the closest to the fire
-            for line in lines:
+            for line in lins:
                 v = vectors(line)
 
                 # orthogonal projection module
@@ -83,7 +85,7 @@ class FireScenario:
                     section += [0, 0, 1.2]
                 else:
                     section[-1] = max([v[1][-1], v[0][-1]])
-            generated = (*self.fire_location, *section, d, shell_lvl, closest.layer.split('*')[0], *unit_v)
+            generated = (*self.fire_location, *section, d, self.ceiling, closest.layer.split('*')[0], *unit_v)
 
             structure['f'].clear()  # clear temporary layout 'foo'
 
@@ -105,10 +107,10 @@ class FireScenario:
                 z1 = line.start[2]
                 z2 = line.end[2]
                 # do not consider lines beneath the fire base or above the ceiling
-                if z2 <= self.fire_location[2] or z1 >= shell_lvl:
+                if z2 <= self.fire_location[2] or z1 >= self.ceiling:
                     continue
                 # accept lines in (fire base, ceiling) ranges
-                elif z1 > self.fire_location[2] and z2 < shell_lvl:
+                elif z1 > self.fire_location[2] and z2 < self.ceiling:
                     structure['f'].append(line)
                 # cut lines to (fire base, ceiling) ranges with 0.01 tolerance
                 else:
@@ -116,9 +118,9 @@ class FireScenario:
                     if z1 <= self.fire_location[2]:
                         to_save = line
                         to_save.start = (line.start[0], line.start[1], self.fire_location[2] + 0.01)
-                    if z2 >= shell_lvl:
+                    if z2 >= self.ceiling:
                         to_save = line
-                        to_save.end = (line.end[0], line.end[1], shell_lvl - 0.01)
+                        to_save.end = (line.end[0], line.end[1], self.ceiling - 0.01)
                     # check if line has non-zero length
                     if np.linalg.norm(np.array(to_save.start) - np.array(to_save.end)) > 0:
                         structure['f'].append(to_save)
@@ -138,6 +140,7 @@ class FireScenario:
                 if y > min(p1y, p2y):
                     if y <= max(p1y, p2y):
                         if x <= max(p1x, p2x):
+                            xints = None
                             if p1y != p2y:
                                 xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
                             if p1x == p2x or x <= xints:
@@ -146,13 +149,11 @@ class FireScenario:
 
             return inside
 
-        shell_lvl = 1e5  # atmosphere bounds (here the space begins!)
-
         # check for shell (plate, ceiling) existing above the fire assign the level if true
         for s in structure['s']:
             lvl = s.points[0][2]  # read level from first point of shell
-            if float(self.fire_location[2]) <= lvl < shell_lvl and ray_tracing_method(self.fire_location, s.points):
-                shell_lvl = lvl
+            if float(self.fire_location[2]) <= lvl < self.ceiling and ray_tracing_method(self.fire_location, s.points):
+                self.ceiling = lvl
 
         for element_type in ['b', 'c']:
             lines = structure[element_type]  # choose beams or columns as lines
@@ -165,6 +166,7 @@ class FireScenario:
 
         return mapped
 
+    # calculate HRR(t) and D(t) tables
     def create_fire_curve(self):
         # fire area is limited only by model limitation implemented to the fires.Properties
         if 'alfat2' in self.fire_type:
@@ -178,29 +180,25 @@ class FireScenario:
 
         self.fire_curve = f.burn()
 
-    # DO IT for all the calculations
-    def locafitxt(self):
-        # add data to LOCAFI.txt core
+    # fill locafi.txt template from core.py
+    def prepare_locafi(self):
+        str_position = f'{"    ".join(self.fire_location)}'
         lcf = core.locafi.copy()
 
+        # insert value to the template
         def ins(arg, index): return lcf[index].split('*')[0] + str(arg) + lcf[index].split('*')[1]
 
-        str_position = '{} {} {}'.format(*position)
-
-        lcf[2] = ins(str_position, 2)
-        lcf[3] = ins(, 3)
-
-        # add tables of hrr and diameter
+        # change vector to the list of string values
         def v2str(vector): return [str(i) for i in vector]
 
+        # add tables of hrr and diameter to the template
         def add(start, tab): [lcf.insert(i + start, '    '.join(v2str(tab[i])) + '\n') for i in range(len(tab))]
 
-        add(lcf.index('DIAMETER\n') + 2, diam_tab)
-        add(lcf.index('RHR\n') + 2, hrr_tab)
+        lcf[2] = ins(str_position, 2)
+        lcf[3] = ins(str(self.ceiling), 3)
+        [add(lcf.index(t) + 2, self.fire_curve[i]) for i, t in enumerate(['DIAMETER\n', 'RHR\n'])]
 
-        # save locafi.txt to the dir
-        with open('locafi.txt', 'w+') as file:
-            file.writelines(lcf)
+        self.locafi_lines = lcf
 
 
 # triangular distribution sampler
@@ -215,16 +213,22 @@ class MCGenerator:
         self.config = config_object
         self.n = 1000  # size of the sample
         self.fuel = self.read_fuel()  # fuel distribution and properties
-        self.set = []  # set of fire scenarios
+        self.set = []
 
     def read_fuel(self):
+        print(out(outpth, 'Reading fuel configuration files...'), end='\r')
+        t0 = sec()
+
         fuel_type = self.config.fuel.lower()
         if fuel_type == 'obj':
-            return fires.FuelOBJ(self.config.title).read_fuel()
+            fuel = fires.FuelOBJ(self.config.title).read_fuel()
         elif fuel_type == 'step':
-            return fires.Fuel(self.config.title).read_fuel()
+            fuel = fires.Fuel(self.config.title).read_fuel()
         else:
-            return fires.OldFuel(self.config.title).read_fuel()
+            fuel = fires.OldFuel(self.config.title).read_fuel()
+
+        print(out(outpth, '[OK] Fuel configuration imported ({} s)'.format(round(sec() - t0, 2))))
+        return fuel
 
     def find_hrrpua(self, fire_z, properties):
         # calculate HRRPUA according to triangular distribution specified by user
@@ -245,12 +249,7 @@ class MCGenerator:
     def find_fire_origin(self):
         def random_position(xes, yes, zes):
             coordinates = []
-            try:
-                [coordinates.append(random.randint(int(10 * i[0]), int(10 * i[1])) / 10) for i in [xes, yes, zes]]
-            except ValueError:
-                print(xes, yes, zes)
-                [print(int(10 * i[0]), int(10 * i[1]) / 10) for i in [xes, yes, zes]]
-                exit(0)
+            [coordinates.append(random.randint(int(10 * i[0]), int(10 * i[1])) / 10) for i in [xes, yes, zes]]
             return coordinates
 
         # find the fuel actual_site within the fuel sites
@@ -288,17 +287,19 @@ class MCGenerator:
         return [alpha, hrrpua, fire_coordinates], sprink_act
 
     def sampling(self):
+        t = sec()
         for i in range(self.n):
+            progress_bar('Monte Carlo sampling', i, self.n)
             self.set.append(FireScenario(self.config, *self.find_fire()))
-            if i == self.n / self.n % 20:
-                # save to f'{self.config.title}_set.csv'
-                pass
+        print(f'[OK] {self.n} fire scenarios were chosen ({round(sec() - t, 2)}) s')
 
 
 class PrepareMulti:
     def __init__(self, config_object: Config):
         self.config = config_object
         self.structure = self.read_dxf()
+        self.data_frame = df(columns=('fire_id', 'calc_no', 'time', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s',
+                                      'distance', 'ceiling_lvl', 'profile', 'u_x', 'u_y', 'u_z', 'HRRPUA', 'alpha'))
 
     # read dxf geometry
     def read_dxf(self):
@@ -329,39 +330,7 @@ class PrepareMulti:
 
         return {'b': beams, 'c': columns, 's': shells, 'f': []}
 
-    def do(self, set):
-       for i in set:
-           
-
-'''Monte Carlo module: drawing input data sets'''
-
-
-class Generator:
-    def __init__(self, t_end, title, fire_type, fuelconfig):
-        self.t_end = t_end  # simulation duration time
-        self.title = title  # simulation title
-        self.f_type = fire_type  # type of fire
-        self.fire_coords = []  # to export to Single class
-
-        print(out(outpth, 'Reading fuel configuration files...'), end='\r')
-        t = sec()
-        if fuelconfig == 'stp':
-            self.fuel = fires.Fuel(title).read_fuel()  # import fuel from STEP and FUL config files
-        elif fuelconfig == 'obj':
-            self.fuel = fires.FuelOBJ(title).read_fuel()  # import fuel from OBJ and FUL config files
-        else:
-            self.fuel = rcsv('{}.ful'.format(title))
-
-        print(out(outpth, '[OK] Fuel configuration imported ({} s)'.format(round(sec() - t, 2))))
-
-'''Preparing files for the multisimuation process'''
-
-
-class MultiT2D:
-    def __init__(self, time_end):
-        self.t_end = time_end
-
-    def dummy(self, chid, section, unit_v):
+    def write_dummy_structural(self, chid, section, unit_v):
 
         # calculate nodes position
         np_section = np.array(section).astype(float)
@@ -392,138 +361,86 @@ class MultiT2D:
 
         # change T_END
         for n in (36, 41):
-            lines[n] = str(self.t_end).join(lines[n].split('&T_END&'))
+            lines[n] = str(self.config.time_end).join(lines[n].split('&T_END&'))
 
         with open('{}.in'.format(chid), 'w+') as file:
             file.writelines(lines)
 
-    def profile(self, chid, profile_type):
-        try:
-            copyfile('{1}/{0}.gid/{0}.in'.format(profile_type, config['config_path']), '{}.in'.format(profile_type))
-        except FileNotFoundError:
-            raise FileNotFoundError('There is no {}.gid directory among configuration'.format(profile_type))
-
-        # change profile to LCF and set chid.in as S3D
-        Thermal(chid, 'LCF', frame_chid=chid, profile_pth='{}.in'.format(profile_type), time_end=self.t_end,
-                scripted=True).change_in()
-
-    # generate initial files (elem.in, prof.in, locafi.txt) based on DataFrame row (title_set.csv)
-    def prepare(self, data_row):
-        # create dummy.in (for one element S3D - just to map fire to element in SAFIR)
-        unit_vector = np.array([data_row['u_x'], data_row['u_y'], data_row['u_z']]).astype(float)
-        self.dummy(str(data_row['ID']), (data_row['x_s'], data_row['y_s'], data_row['z_s']), unit_vector)
-
-        # copy profile GiD directory and prepare T2D files
-        self.profile(str(data_row['ID']), str(data_row['profile']))
-
-
-# generates a set of n scenarios
-def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconfig):
-    def create_df():
-        return df(columns=('ID', 'element_type', 'time', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s', 'distance',
-                           'ceiling_lvl', 'profile', 'u_x', 'u_y', 'u_z', 'HRRPUA', 'alpha'))
-
     # append DataFrame to CSV file
-    def df2csv(df, path='{}\{}_set.csv'.format(results_path, title)):
+    def writedf2csv(self, iteration_no):
+        path = os.path.join(self.config.results_path, f'{self.config.title}_set.csv')
         try:
             with open(path):
                 header = False
+            to_be_written = self.data_frame[iteration_no:]
         except FileNotFoundError:
             header = True
+            to_be_written = self.data_frame
 
-        df.to_csv(path, mode='a', header=header)
+        to_be_written.to_csv(path_or_buf=path, mode='a', header=header)
 
-    # create locafi.txt file
-    def locafi(row, fire):
-        chdir(config_path)
+    def copy_section(self, section_chid, dir_path):
+        copy2(self.config.section_path(section_chid), dir_path)
+        ThermalTEM(1, [section_chid, [], []], self.config.config_path, 'lcf', self.config.time_end, dir_path).change_in(
+            os.path.basename(dir_path))
 
-        # create simulation directory
-        try:
-            makedirs('{}\{}'.format(results_path, str(row['ID'])))
-        except FileExistsError:
-            pass
-        chdir('{}\{}'.format(results_path, str(row['ID'])))
+    def do(self):
+        # check if there are any elements above the fire source
+        def check_if_valid(row):
+            if row['profile'] != row['profile']:
+                with open(os.path.join(dir_path, f'{row["fire_id"]}_{row["calc_no"]}.err'), 'w') as err:
+                    mess = f'[WARNING] There are no structural elements above the fire base in the' \
+                           f' {row["fire_id"]}_{row["calc_no"]} fire scenario'
+                    err.write(f'{mess}\nMax element temperature in this scenario is equal to the ambient temperature')
+                print(out(outpth, mess))
+                return False
+            return True
 
-        # create locafi.txt fire file
-        gen.locafitxt((row['x_f'], row['y_f'], row['z_f']), *fire, row['ceiling_lvl'])
+        gen = MCGenerator(self.config)
+        gen.sampling()
 
-        chdir(config_path)
+        t = sec()
+        dfindex = 0
+        for s_no, scenario in enumerate(gen.set):
+            progress_bar('Preparing files', s_no, gen.n)
+            scenario.prepare_locafi()
+            scenario.map(self.structure)
+            for c_no, calculation in enumerate(scenario.mapped):
+                dir_path = os.path.join(self.config.results_path, f'{s_no}_{c_no}')
+                section_chid = calculation[-4]
+                unit_vector = np.array(calculation[-3:]).astype(float)  # section orientation - to be improved
 
-    csvset = create_df()
-    df2csv(csvset)
-    simid_core = int(sec())
+                makedirs(dir_path)
 
-    if simid_core % 2 != 0:  # check if odd
-        simid_core += 1
+                # save fire file to the directory
+                with open(os.path.join(dir_path, 'locafi.txt'), 'w') as lcffile:
+                    lcffile.writelines(scenario.locafi_lines)
 
-    print(out(outpth, '[OK] User configuration imported ({} s)'.format(round(sec() - start, 2))))
+                # create SAFIR files
+                self.copy_section(section_chid, dir_path)
+                self.write_dummy_structural(f'{s_no}_{c_no}', section_chid, unit_vector)
 
-    sing = Single(title)
-    gen = Generator(t_end, title, fire_type, fuelconfig)
+                # save this calculation data to the data frame
+                self.data_frame.loc[dfindex] = [s_no, c_no, ctime(sec())] + calculation
+                check_if_valid(self.data_frame.loc[dfindex])
+                dfindex += 1
 
-    t = sec()
-    # draw MC input samples
-    for i in range(0, int(n) * 2, 2):
-        progressBar('Preparing fire scenarios', i, n * 2)
-        fire = list(gen.fire())  # draw fire
-
-        # draw localization of the most exposed beam
-        csvset.loc[i] = [simid_core + i, 'b', ctime(sec())] + sing.generate(gen.fire_coords, 'b') + fire[2:]
-        locafi(csvset.loc[i], fire[:2])  # generate locafi.txt
-
-        # draw localization of the most exposed column
-        csvset.loc[i + 1] = [simid_core + i + 1, 'c', ctime(sec())] + sing.generate(gen.fire_coords, 'c') + fire[2:]
-        locafi(csvset.loc[i + 1], fire[:2])  # generate locafi.txt
-
-        # write rows every 8 records (4 fire scenarios)
-        if (i + 2) % 8 == 0:
-            df2csv(csvset)
-            del csvset
-            csvset = create_df()
-
-    # write unwritten rows
-    try:
-        df2csv(csvset)
-        del csvset
-    except ValueError:
-        pass
-
-    return '[OK] {} scenarios (2 simulations each) generated ({} s)'.format(int(n), round(sec() - t, 2))
-
-
-# generate files for multisimulation
-def generate_sim(data_path):
-    t = sec()
-    chdir(config['results_path'])
-    data_set = rcsv(data_path)
-    for i, r in data_set.iterrows():
-        if r['profile'] != r['profile']:
-            with open('{0}\{0}.err'.format(r['ID']), 'w') as err:
-                mess = '[WARNING] There are no elements above the fire base in scenario {}'.format(r['ID'])
-                err.write('{}\nMax element temperature in te scenario is equal to the ambient temperature'.format(mess))
-            print(out(outpth, mess))
-            continue
-        chdir(str(r['ID']))
-        MultiT2D(config['time_end']).prepare(r)
-        chdir('..')
-
-    return '[OK] {} simulation files created ({} s)'.format(len(data_set.index), round(sec() - t, 2))
+            save_interval = gen.n / 20  # save 20 times
+            if s_no % save_interval == 0 and s_no > 0:
+                self.writedf2csv(s_no - save_interval)
+        print(out(outpth, f'[OK] {dfindex} file sets were prepared ({round(sec() - t, 2)}) s'))
 
 
 if __name__ == '__main__':
-    start = sec()
-    outpth = getcwd() + '\mc.log'
-    with open(outpth, '+w') as f:
-        f.write(ctime(sec()) + '\n')
-    print(out(outpth, 'Reading user configuration...'), end='\r')
-    config = Config(sys.argv[1])  # import multisimulation config
-    try:
-        makedirs(config.results_path)  # create results directory
-    except FileExistsError:
-        pass
+    print(out(outpth, 'mc.py  Copyright (C) 2022  Kowalski W.'
+                      '\nThis program comes with ABSOLUTELY NO WARRANTY.'
+                      '\nThis is free software, and you are welcome to redistribute it under certain conditions.'
+                      '\nSee GPLv3.0 for details (https://www.gnu.org/licenses/gpl-3.0.html).\n'))
 
-    chdir(config.config_path)  # change to config
+    cfg = Config(sys.argv[1])
 
-    print(out(outpth, generate_set(config['max_iterations'], config['case_title'], config['time_end'],
-                                   config['fire_type'], config['config_path'], config['results_path'], config['fuel'])))
-    print(out(outpth, generate_sim('{}\{}_set.csv'.format(config['results_path'], config['case_title']))))
+    preparations = PrepareMulti(cfg)
+    preparations.do()
+
+    print(out(outpth, 'Thank you for using mcsteel package :)\n'
+                      '\nVisit project GitHub site: https://github.com/kowalskiw/mcsteel and contribute!\n'))

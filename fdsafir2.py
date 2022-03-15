@@ -1,3 +1,4 @@
+import os.path
 from time import time as sec
 from datetime import timedelta as dt
 from datetime import datetime as dt1
@@ -132,12 +133,17 @@ class Config:
         self.time_end = self.config['time_end']
         self.fuel = self.config['fuel']
         self.occupancy = self.optional('occupancy')
+        print('[OK] Configuration file loaded')
 
     def optional(self, key):
         try:
             return self.config[key]
         except KeyError:
            return None
+
+    def section_path(self, section_chid):
+        return find_paths(self.config_path, section_chid, shell=False)[0]
+
 
 
 # find profile - first element relation in SAFIR S3D file (ent.e. HEA180.tem-b_0001.tem)
@@ -196,9 +202,9 @@ def read_mech_input(path_to_frame):
 # return the input file path regarding to GiD catalogues or files with no further directory tree
 # (make this comment better, please)
 def find_paths(config_path, chid, shell=False):
-    gid_paths = ['{0}\{1}.gid\{1}{2}'.format(config_path, chid, i) for i in ['.in', '-1.T0R']]
-    other_in_path = '{0}\{1}.in'.format(config_path, chid)
-    other_tor_paths = ['{0}\{1}{2}'.format(config_path, chid, i) for i in ['-1.T0R', 'T0R', 't0r', 'tor', 'TOR']]
+    gid_paths = [os.path.join(config_path, f'{chid}.gid', f'{chid}.{i}') for i in ['.in', '-1.T0R']]
+    other_in_path = [os.path.join(config_path, f'{chid}.{i}') for i in ['in', 'IN', 'In', 'iN']]
+    other_tor_paths = [os.path.join(config_path, f'{chid}{i}') for i in ['-1.T0R', '.T0R', '.t0r', '.tor', '.TOR']]
     expected_paths_no = 2
 
     if shell:
@@ -210,7 +216,7 @@ def find_paths(config_path, chid, shell=False):
 
     def check(file_path):
         if isfile(file_path):
-            real_paths.append(file_path)
+            real_paths.append(os.path.abspath(file_path))
 
     # check if there are GiD directories with thermals
     [check(i) for i in gid_paths]
@@ -704,21 +710,14 @@ def run_user_mode(sim_no, arguments):
     # run thermal analyses
     m.make_thermals(arguments.config)
 
-    if m.model in {'cfd', 'fds'}:
-        # enable using many cfd transfer files
-        ManyCfds(m.sim_dir, f'{arguments.config}/transfer_files/', m.input_file, arguments.safir).main()
+    # check the set up
+    Check(m).full_mech() if arguments.check else print('[WARNING] No checking routine applied')
 
-        print(f'Runtime of CFD-heating thermal analysis: {dt(seconds=int(sec() - start))}\n')
-
-    else:
-        # check the set up
-        Check(m).full_mech() if arguments.check else print('[WARNING] No checking routine applied')
-
-        for t in m.thermals:
-            st = sec()
-            t.change_in(m.chid)
-            t.run(arguments.safir)
-            print(f'Runtime of "{t.chid}" thermal analysis: {dt(seconds=int(sec() - st))}\n')
+    for t in m.thermals:
+        st = sec()
+        t.change_in(m.chid)
+        t.run(arguments.safir)
+        print(f'Runtime of "{t.chid}" thermal analysis: {dt(seconds=int(sec() - st))}\n')
 
     # run mechanical analysis
     st = sec()
