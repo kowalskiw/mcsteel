@@ -1,8 +1,8 @@
 from numpy import random, pi
-from pandas import read_csv, merge, DataFrame, Series
+from pandas import read_csv, merge, DataFrame, Series, concat
 from math import exp
 from steputils import p21
-from os import scandir
+from os import scandir, path
 
 '''Import fuel configuration from STEP (geometrical distribution) and FUEL (data)
 - to be merged with Properties config
@@ -11,9 +11,10 @@ cwd == config_path'''
 
 
 class Fuel:
-    def __init__(self, title):
-        self.title = title
+    def __init__(self, path2fuel):
+        self.path2fuel = path2fuel
         self.layers = []
+        self.workdir = path.dirname(path2fuel)
 
     # return points of the solid
     def find_points(self, volume, step):
@@ -83,22 +84,23 @@ class Fuel:
         merged = DataFrame(columns=['XA', 'XB', 'YA', 'YB', 'ZA', 'ZB', 'MC', 'hrrpua_min', 'hrrpua_max', 'hrrpua_mode',
                                     't_sprink'])
 
-        fuel = read_csv('{}.fuel'.format(self.title))
+        fuel = read_csv(self.path2fuel)
         for v in vols:
             data = fuel[fuel.name == v[0]]
             # convert list to DF
             coords = DataFrame([v[0], *v[1]], index=['name', 'XA', 'XB', 'YA', 'YB', 'ZA', 'ZB']).T
             # merge DF1 and DF2
-            merged = merged.append([merge(coords, data).drop('name', axis=1)])
+            new_fuel = merge(coords, data).drop('name', axis=1)
+            merged = concat([merged, new_fuel]) if not merged.empty else new_fuel
 
         return merged
 
     def read_fuel(self):
         fuel = []
-        for lay in scandir():
+        for lay in scandir(self.workdir):
             splt = lay.name.split('.')
             if splt[-1] == ('step' or 'stp'):
-                step = p21.readfile(lay.name)
+                step = p21.readfile(lay.path)
                 vols = self.read_step(step)
                 for v in vols:
                     pts = self.find_points(v, step)
@@ -140,12 +142,12 @@ class FuelOBJ(Fuel):
 
     def read_fuel(self):
         fuel = []
-        for lay in scandir():
+        for lay in scandir(self.workdir):
             splt = lay.name.split('.')
             if splt[-1] == ('obj'):
-                with open(lay.name) as file:
+                with open(lay.path) as file:
                     obj = file.readlines()
-                    for volume in self.find_points(obj_file=obj, scale=1000):
+                    for volume in self.find_points(obj_file=obj, scale=1):      # scale=1 for [m] 1000 for [mm]
                         fuel.append([splt[0],  self.pts2fds(volume)])
                 if len(fuel) == 0:
                     raise RuntimeError('[ERROR] No fuel data imported from {}'.format(''.join(splt)))

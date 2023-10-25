@@ -26,14 +26,12 @@ class FireScenario:
         self.profiles = []  # [profile1, profile2, profile3] profile1 = fdsafir2.ThermalTEM
         self.fire_curve = [[], []]  # [[0,... time steps ... t_end], [HRR(0), ... HRR ... HRR(t_end)]]
         self.fire_type = str  # fire curve function type form fires.Fires
-        self.mapped = []  # list of complete data for further calculations
+        self.mapped = []  # complete set of data for profiles to be calculated in this scenario
         self.ceiling = 1e5  # level of ceiling above the fire source (here the space begins!)
         self.locafi_lines = []  # lines for locafi.txt fire file
 
     # map fire location with structure to find the most heated profiles to be analysed
     def map(self, structure):
-        mapped = []  # complete set of data for profiles to be calculated in this scenario
-
         # (*fire coords, *section coords, length of the fire-section vector, level of shell above the fire, profile,
         # *unit vector))
 
@@ -85,7 +83,7 @@ class FireScenario:
                     section += [0, 0, 1.2]
                 else:
                     section[-1] = max([v[1][-1], v[0][-1]])
-            generated = (*self.fire_location, *section, d, self.ceiling, closest.layer.split('*')[0], *unit_v)
+            generated = [*self.fire_location, *section, d, self.ceiling, closest.layer.split('*')[0], *unit_v]
 
             structure['f'].clear()  # clear temporary layout 'foo'
 
@@ -155,16 +153,13 @@ class FireScenario:
             if float(self.fire_location[2]) <= lvl < self.ceiling and ray_tracing_method(self.fire_location, s.points):
                 self.ceiling = lvl
 
-        for element_type in ['b', 'c']:
+        for i, element_type in enumerate(['b', 'c']):
             lines = structure[element_type]  # choose beams or columns as lines
             cut_lines()  # cut beams accordingly to Z in (fire_z - shell_lvl) range and map to relative
-            map_lines(element_type)
 
-            mapped.append(list(map_lines(element_type)))
+            self.mapped.append(map_lines(element_type))
 
-            self.profiles.append(mapped[3])
-
-        return mapped
+            self.profiles.append(self.mapped[i][3])
 
     # calculate HRR(t) and D(t) tables
     def create_fire_curve(self):
@@ -182,7 +177,7 @@ class FireScenario:
 
     # fill locafi.txt template from core.py
     def prepare_locafi(self):
-        str_position = f'{"    ".join(self.fire_location)}'
+        str_position = f'{"    ".join([str(c) for c in self.fire_location])}'
         lcf = core.locafi.copy()
 
         # insert value to the template
@@ -220,12 +215,13 @@ class MCGenerator:
         t0 = sec()
 
         fuel_type = self.config.fuel.lower()
+        fuel_full_path = os.path.join(self.config.config_path, f'{self.config.title}.fuel')
         if fuel_type == 'obj':
-            fuel = fires.FuelOBJ(self.config.title).read_fuel()
+            fuel = fires.FuelOBJ(fuel_full_path).read_fuel()
         elif fuel_type == 'step':
-            fuel = fires.Fuel(self.config.title).read_fuel()
+            fuel = fires.Fuel(fuel_full_path).read_fuel()
         else:
-            fuel = fires.OldFuel(self.config.title).read_fuel()
+            fuel = fires.OldFuel(fuel_full_path).read_fuel()
 
         print(out(outpth, '[OK] Fuel configuration imported ({} s)'.format(round(sec() - t0, 2))))
         return fuel
@@ -306,7 +302,7 @@ class PrepareMulti:
         t1 = sec()
 
         print(out(outpth, 'Reading DXF geometry...'), end='\r')
-        dxffile = dxf.readfile('{}.dxf'.format(self.config.title))
+        dxffile = dxf.readfile(os.path.join(self.config.config_path, f'{self.config.title}.dxf'))
         print(out(outpth, '[OK] DXF geometry imported ({} s)'.format(round(sec() - t1, 2))))
 
         beams = []
@@ -330,7 +326,7 @@ class PrepareMulti:
 
         return {'b': beams, 'c': columns, 's': shells, 'f': []}
 
-    def write_dummy_structural(self, chid, section, unit_v):
+    def write_dummy_structural(self, chid: str, section: list, unit_v: np.array):
 
         # calculate nodes position
         np_section = np.array(section).astype(float)
@@ -367,7 +363,7 @@ class PrepareMulti:
             file.writelines(lines)
 
     # append DataFrame to CSV file
-    def writedf2csv(self, iteration_no):
+    def writedf2csv(self, iteration_no: int):
         path = os.path.join(self.config.results_path, f'{self.config.title}_set.csv')
         try:
             with open(path):
@@ -386,8 +382,10 @@ class PrepareMulti:
 
     # allows to prepare files in different location (i.e. node)
     def prepare_files(self, chid, calc_data, locafi_lines):
+        # calc_data = (*self.fire_location, *section, d, self.ceiling, closest.layer.split('*')[0], *unit_v)
         dir_path = os.path.join(self.config.results_path, chid)
         section_chid = calc_data[-4]
+        section_coords = calc_data[3:6]
         unit_vector = np.array(calc_data[-3:]).astype(float)  # section orientation - to be improved
 
         # check if there are any elements above the fire source
@@ -406,9 +404,10 @@ class PrepareMulti:
 
         # create SAFIR files
         self.copy_section(section_chid, dir_path)
-        self.write_dummy_structural(chid, section_chid, unit_vector)
+        self.write_dummy_structural(chid, section_coords, unit_vector)
 
     def do(self):
+        os.makedirs(self.config.results_path) if not os.path.exists(self.config.results_path) else None
         gen = MCGenerator(self.config)
         gen.sampling()
 
@@ -424,10 +423,12 @@ class PrepareMulti:
                 self.prepare_files(chid, calculation, scenario.locafi_lines)
 
                 # save this calculation data to the data frame
+                breakpoint()
+                # ADD HRRPUA AND ALPHA TO DATA FRAME [WK]
                 self.data_frame.loc[dfindex] = [s_no, c_no, ctime(sec())] + calculation
                 dfindex += 1
 
-            save_interval = gen.n / 20  # save 20 times
+            save_interval = int(gen.n / 20)  # save 20 times
             if s_no % save_interval == 0 and s_no > 0:
                 self.writedf2csv(s_no - save_interval)
         print(out(outpth, f'[OK] {dfindex} file sets were prepared ({round(sec() - t, 2)}) s'))
@@ -436,6 +437,7 @@ class PrepareMulti:
 
 
 if __name__ == '__main__':
+    outpth = './mc.log'
     print(out(outpth, 'mc.py  Copyright (C) 2022  Kowalski W.'
                       '\nThis program comes with ABSOLUTELY NO WARRANTY.'
                       '\nThis is free software, and you are welcome to redistribute it under certain conditions.'
@@ -446,5 +448,5 @@ if __name__ == '__main__':
     preparations = PrepareMulti(cfg)
     preparations.do()
 
-    print(out(outpth, 'Thank you for using mcsteel package :)\n'
-                      '\nVisit project GitHub site: https://github.com/kowalskiw/mcsteel and contribute!\n'))
+    print(out(outpth, '\nThank you for using mcsteel package :)\n'
+                      'Visit project GitHub site: https://github.com/kowalskiw/mcsteel and contribute!\n'))

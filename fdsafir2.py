@@ -118,7 +118,6 @@ class Config:
         self.title = self.config['title']
         self.config_path = self.config['config_path']
         self.results_path = self.config['results_path']
-        self.case_title = self.config['case_title']
         self.safir_path = self.optional('safir_path')
         self.fire_type = self.config['fire_type']
         self.miu = self.optional('miu')
@@ -132,6 +131,8 @@ class Config:
 
     def optional(self, key):
         try:
+            if key == 'max_iterations':
+                return int(self.config[key])
             return self.config[key]
         except KeyError:
            return None
@@ -196,6 +197,36 @@ def read_mech_input(path_to_frame):
 # return the input file path regarding to GiD catalogues or files with no further directory tree
 # (make this comment better, please)
 def find_paths(config_path, chid, shell=False):
+    in_paths = [os.path.join(config_path, f'{chid}.{i}') for i in ['in', 'IN', 'In', 'iN']]
+    tor_paths = [os.path.join(config_path, f'{chid}{i}') for i in ['-t.TOR', '-t.T0R', '.TOR', '.T0R']]
+    encaps_in_paths = [os.path.join(os.path.dirname(i), chid, os.path.basename(i)) for i in in_paths]
+    encaps_tor_paths = [os.path.join(os.path.dirname(i), chid, os.path.basename(i)) for i in tor_paths]
+    expected_paths_no = 2
+
+    if shell:
+        expected_paths_no = 1
+
+    real_paths = []
+
+    def check(file_path):
+        if isfile(file_path):
+            real_paths.append(os.path.abspath(file_path))
+            return True
+
+    for p in in_paths + encaps_in_paths:
+        if check(p):
+            break
+
+    for p in tor_paths + encaps_tor_paths:
+        if check(p):
+            break
+
+    if len(real_paths) == expected_paths_no:
+        return real_paths
+    else:
+        raise FileNotFoundError('[ERROR] It is not possible to locate your {} thermal or torsion results. '
+                                'Check config path {}.'.format(chid, config_path))
+def find_paths2019(config_path, chid, shell=False):
     gid_paths = [os.path.join(config_path, f'{chid}.gid', f'{chid}.{i}') for i in ['.in', '-1.T0R']]
     other_in_path = [os.path.join(config_path, f'{chid}.{i}') for i in ['in', 'IN', 'In', 'iN']]
     other_tor_paths = [os.path.join(config_path, f'{chid}{i}') for i in ['-1.T0R', '.T0R', '.t0r', '.tor', '.TOR']]

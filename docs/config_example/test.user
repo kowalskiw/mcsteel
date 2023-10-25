@@ -1,6 +1,6 @@
 config_path = D:\simulations\01_test\config
 results_path = D:\simulations\01_test\results
-case_title = test
+title = test
 safir_path = D:\SAFIR
 fire_type = alfat2_store
 miu = 0.7
