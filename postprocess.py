@@ -1,9 +1,76 @@
+import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings
+from math import log
+from pandas import read_csv as rcsv
+from sys import argv
+
+from utils import user_config
 
 
-class Charting:
+'''Save output as summary results.txt and csv database. Run chart.Charting().'''
+
+
+# calculate critical temperature of section according to EC3
+def temp_crit(coef):
+    return 39.19 * log(1 / 0.9674 / coef ** 3.833 - 1) + 482
+
+
+# calculate rooted mean square error p - probability, n - number of iterations
+def rmse(p, n):
+    return (p * (1 - p) / n) ** 0.5
+
+
+def summary(data, t_crit, rset, savepath='.'):
+    num_nocoll = len(data.time_crit[data.time_crit == 0])
+    n_iter = len(data.temp_max)
+
+    def uncertainty(save_list, p, n):
+        if save_list[-1][-4:-2] == "0." or save_list[-1][-4:-2] == "1.":
+            err = 3 / n
+            save_list.append('CI={}\n'.format(err))
+        else:
+            err = (p * (1 - p) / n) ** 0.5
+            save_list.append('RMSE={}\n'.format(err))
+
+        return err, save_list
+
+    print('Saving results...')
+
+    save_list = ['McSteel v0.1.0\n\nResults from {} iterations\n'.format(n_iter)]
+    err = [1, 1]  # actual uncertainty of calculation
+
+    # calculating and writing exceeding critical temperature probability and uncertainty to the list
+    try:
+        p_collapse = len(data.temp_max[data.temp_max >= int(t_crit)]) / len(data.temp_max)
+        save_list.append('P(collapse) = {}\n'.format(p_collapse))
+    except ZeroDivisionError:
+        save_list.append('unable to calculate P(ASET<RSET) and RMSE\n')
+        p_collapse = 0
+    err[0], save_list = uncertainty(save_list, p_collapse, n_iter)
+
+    # calculating and writing ASET<RSET probability and uncertainty to the list
+    try:
+        p_evacfailed = (len(data.time_crit[data.time_crit <= int(rset)]) - num_nocoll) / (
+                len(data.time_crit) - num_nocoll)
+        save_list.append('P(ASET < RSET) = {}\n'.format(p_evacfailed))
+    except ZeroDivisionError:
+        save_list.append('unable to calculate P(ASET<RSET) and RMSE\n')
+        p_evacfailed = 0
+    err[1], save_list = uncertainty(save_list, p_evacfailed, n_iter)
+
+    with open(os.path.join(savepath, 'results.txt'), 'w') as file:
+        file.writelines(save_list)
+    print('[OK] Results summary written to TXT file')
+
+    # draw charts
+    Plots(data, t_crit, rset, (p_collapse, p_evacfailed)).draw(savepath)
+
+    return err
+
+
+class Plots:
     def __init__(self, data_frame, t_crit, rset, probs):
         self.results = data_frame
         self.t_crit = t_crit
@@ -26,7 +93,7 @@ class Charting:
         plt.axvline(x=x_crit, color='r')
         plt.text(x_crit - 0.05 * (plt.axis()[1] - plt.axis()[0]), 0.2, crit_lab, rotation=90)
 
-    def dist(self, type='cdf'):
+    def dist(self, savepath='.', type='cdf'):
         try:
             plt.figure(figsize=(12, 4))
 
@@ -52,18 +119,17 @@ class Charting:
                 self.pdf(self.results.temp_max, self.t_crit, 'Temperature [°C]', r'$\theta_{a,cr}$')
 
         if type == 'cdf':
-            plt.savefig('dist_p.png')
-            plt.clf()
-            plt.close('all')
+            savepath = os.path.join(savepath, 'cdf.png')
         elif type == 'pdf':
-            plt.savefig('dist_d.png')
-            plt.clf()
-            plt.close('all')
+            savepath = os.path.join(savepath, 'pdf.png')
+        plt.savefig(savepath)
+        plt.clf()
+        plt.close('all')
 
-    def draw(self):
+    def draw(self, path):
         print('Drawing charts...')
-        self.dist(type='cdf')
-        self.dist(type='pdf')
+        self.dist(path, type='cdf')
+        self.dist(path, type='pdf')
         print('[OK] Charts drawn (temp_crit={}, RSET={})'.format(int(self.t_crit), int(self.rset)))
 
         return 0
@@ -96,3 +162,9 @@ class Densities:
     def console(self):
         # console gui for making density charts
         pass
+
+
+if __name__ == '__main__':
+    user = user_config(argv[1])
+    summary(rcsv('{}\\{}_results.csv'.format(user['results_path'], user['case_title'])), temp_crit(user['miu']),
+            user['RSET'])

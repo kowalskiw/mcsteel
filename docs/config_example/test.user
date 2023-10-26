@@ -1,7 +1,7 @@
 config_path = D:\simulations\01_test\config
 results_path = D:\simulations\01_test\results
 title = test
-safir_path = D:\SAFIR
+safir_path = D:\SAFIR\safir2022.exe
 fire_type = alfat2_store
 miu = 0.7
 RSET = 250

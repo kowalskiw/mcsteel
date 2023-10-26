@@ -4,7 +4,7 @@ from time import time as sec
 import mc
 import multi
 import selsim
-from fdsafir2 import out, Config
+from utils import out, Config
 
 global outpth
 

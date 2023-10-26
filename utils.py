@@ -30,6 +30,7 @@ def run_safir(in_file_path, safir_exe_path='C:\SAFIR\safir.exe', print_time=True
         except UnicodeError:
             continue
         if output:
+            step = output[7:]
             if print_all:
                 print('    ', output)
             # check for errors
@@ -41,15 +42,18 @@ def run_safir(in_file_path, safir_exe_path='C:\SAFIR\safir.exe', print_time=True
             elif '======================' in output:
                 count += 1
             # check for timestep
-            elif 'time' in output and print_time:
-                print(f'SAFIR started "{chid}" (sim #{count}) calculations: {output[7:]}', end='\r')
+            elif 'time' in output:
+                if print_time:
+                    print(f'SAFIR started "{chid}" (sim #{count}) calculations: {step}', end='\r')
+        else:
+            step = ''
 
     rc = process.poll()
     chdir(backpath)
 
     if not rc:
         if success:
-            print(f'[OK] SAFIR finished {count} "{chid}" calculations at')
+            print(f'[OK] SAFIR finished {count} "{chid}" calculations at{step}')
             print(f'[INFO] Computing time: {dt1.now() - start}')
             repair_relax(f'{dirpath}\\{chid}.XML') if fix_rlx else None
             return 0
@@ -333,7 +337,8 @@ class ThermalTEM:
             # change T_END
             elif ('TIME' in line) and ('END' not in line):
                 try:
-                    init[no + 1] = '    '.join([init[no + 1].split()[0], str(self.t_end), '\n'])
+                    timeline = init[no+1].split()
+                    init[no+1] = '    '.join([timeline[0], str(self.t_end), timeline[2], '\n'])
                 except IndexError:
                     pass
 

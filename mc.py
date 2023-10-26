@@ -10,7 +10,7 @@ from shutil import copy2
 import sys
 from numpy import random
 
-from fdsafir2 import ThermalTEM, Config, progress_bar, out
+from utils import ThermalTEM, Config, progress_bar, out
 import fires
 
 global outpth
@@ -25,7 +25,7 @@ class FireScenario:
         self.sprinklers = sprinkler_activation  # [s]
         self.profiles = []  # [profile1, profile2, profile3] profile1 = fdsafir2.ThermalTEM
         self.fire_curve = [[], []]  # [[0,... time steps ... t_end], [HRR(0), ... HRR ... HRR(t_end)]]
-        self.fire_type = str  # fire curve function type form fires.Fires
+        self.fire_type = config_object.fire_type  # fire curve function type form fires.Fires
         self.mapped = []  # complete set of data for profiles to be calculated in this scenario
         self.ceiling = 1e5  # level of ceiling above the fire source (here the space begins!)
         self.locafi_lines = []  # lines for locafi.txt fire file
@@ -174,26 +174,6 @@ class FireScenario:
             raise KeyError('[ERROR] {} is not a proper fire type'.format(self.fire_type))
 
         self.fire_curve = f.burn()
-
-    # fill locafi.txt template from core.py
-    def prepare_locafi(self):
-        str_position = f'{"    ".join([str(c) for c in self.fire_location])}'
-        lcf = core.locafi.copy()
-
-        # insert value to the template
-        def ins(arg, index): return lcf[index].split('*')[0] + str(arg) + lcf[index].split('*')[1]
-
-        # change vector to the list of string values
-        def v2str(vector): return [str(i) for i in vector]
-
-        # add tables of hrr and diameter to the template
-        def add(start, tab): [lcf.insert(i + start, '    '.join(v2str(tab[i])) + '\n') for i in range(len(tab))]
-
-        lcf[2] = ins(str_position, 2)
-        lcf[3] = ins(str(self.ceiling), 3)
-        [add(lcf.index(t) + 2, self.fire_curve[i]) for i, t in enumerate(['DIAMETER\n', 'RHR\n'])]
-
-        self.locafi_lines = lcf
 
 
 # triangular distribution sampler
@@ -381,15 +361,15 @@ class PrepareMulti:
             os.path.basename(dir_path))
 
     # allows to prepare files in different location (i.e. node)
-    def prepare_files(self, chid, calc_data, locafi_lines):
+    def prepare_files(self, chid, iteration_data, scenario):
         # calc_data = (*self.fire_location, *section, d, self.ceiling, closest.layer.split('*')[0], *unit_v)
         dir_path = os.path.join(self.config.results_path, chid)
-        section_chid = calc_data[-6]
-        section_coords = calc_data[3:6]
-        unit_vector = np.array(calc_data[-3:]).astype(float)  # section orientation - to be improved
+        section_chid = iteration_data[-6]
+        section_coords = iteration_data[3:6]
+        unit_vector = np.array(iteration_data[-3:]).astype(float)  # section orientation - to be improved
 
         # check if there are any elements above the fire source
-        if calc_data[-4] != calc_data[-4]:
+        if iteration_data[-4] != iteration_data[-4]:
             with open(os.path.join(dir_path, f'{chid}.err'), 'w') as err:
                 mess = f'[WARNING] There are no structural elements above the fire base in the' \
                        f' {chid} fire scenario'
@@ -399,12 +379,35 @@ class PrepareMulti:
         makedirs(dir_path)
 
         # save fire file to the directory
-        with open(os.path.join(dir_path, 'locafi.txt'), 'w') as lcffile:
-            lcffile.writelines(locafi_lines)
+        self.prepare_locafi(scenario, dir_path)
 
         # create SAFIR files
         self.copy_section(section_chid, dir_path)
         self.write_dummy_structural(chid, section_coords, unit_vector)
+
+    # fill locafi.txt template from core.py
+    def prepare_locafi(self, fire_scenario: FireScenario, dir_path: os.PathLike):
+
+        if not all(fire_scenario.fire_curve):
+            raise IndexError('[ERROR] Empty locafi_lines list')
+        str_position = f'{"    ".join([str(c) for c in fire_scenario.fire_location])}'
+        lcf = core.locafi.copy()
+
+        # insert value to the template
+        def ins(arg, index): return lcf[index].split('*')[0] + str(arg) + lcf[index].split('*')[1]
+
+        # change vector to the list of string values
+        def v2str(vector): return [str(i) for i in vector]
+
+        # add tables of hrr and diameter to the template
+        def add(start, tab): [lcf.insert(i + start, '    '.join(v2str(tab[i])) + '\n') for i in range(len(tab))]
+
+        lcf[2] = ins(str_position, 2)
+        lcf[3] = ins(str(fire_scenario.ceiling), 3)
+        [add(lcf.index(t) + 2, fire_scenario.fire_curve[i]) for i, t in enumerate(['DIAMETER\n', 'RHR\n'])]
+
+        with open(os.path.join(dir_path, 'locafi.txt'), 'w') as lcffile:
+            lcffile.writelines(lcf)
 
     def do(self):
         prev_s_no_max = 0
@@ -427,12 +430,12 @@ class PrepareMulti:
         for s_no, scenario in enumerate(gen.set):
             progress_bar('Preparing files', s_no, gen.n)
             s_no += prev_s_no_max + 1
-            scenario.prepare_locafi()
+            scenario.create_fire_curve()
             scenario.map(self.structure)
             for c_no, calculation in enumerate(scenario.mapped):
                 chid = f'{s_no}_{c_no}'
 
-                self.prepare_files(chid, calculation, scenario.locafi_lines)
+                self.prepare_files(chid, calculation, scenario)
 
                 # save this calculation data to the data frame
                 self.data_frame.loc[dfindex+prev_s_no_max*2] = [s_no, c_no, ctime(sec())] + calculation

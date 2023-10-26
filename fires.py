@@ -201,7 +201,7 @@ class AlfaT2:
     def burn(self):
         hrr_tab, diam_tab = self.t_squared()
 
-        changed_tabs = [self.change(*tab) for tab in [hrr_tab, diam_tab]]
+        changed_tabs = self.change(hrr_tab, diam_tab)
 
         return changed_tabs[0], changed_tabs[1]
 
