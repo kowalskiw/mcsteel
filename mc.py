@@ -40,7 +40,7 @@ class FireScenario:
             # no element exception
             lins = structure['f']
             if lins.__len__() == 0:
-                return *self.fire_location, None, None, None, None, self.ceiling, None, None, None, None
+                return [*self.fire_location, None, None, None, None, self.ceiling, None, None, None, None, None, None]
 
             d = 1e10  # infinitely large number
             closest = None
@@ -83,7 +83,7 @@ class FireScenario:
                     section += [0, 0, 1.2]
                 else:
                     section[-1] = max([v[1][-1], v[0][-1]])
-            generated = [*self.fire_location, *section, d, self.ceiling, closest.layer.split('*')[0], *unit_v]
+            generated = [*self.fire_location, *section, d, self.ceiling, closest.layer.split('*')[0], *unit_v, self.hrrpua, self.alpha]
 
             structure['f'].clear()  # clear temporary layout 'foo'
 
@@ -319,7 +319,7 @@ class PrepareMulti:
                 else:
                     columns.append(ent)
             x += 1
-        print(out(outpth, '[OK] Lines converted ({} s)'.format(round(sec() - start, 2))))
+        print(out(outpth, '[OK] Lines converted ({} s)                       '.format(round(sec() - start, 2))))
 
         # assign 3DFACE elements to shells table
         shells = [ent for ent in dxffile.entities if ent.dxftype == '3DFACE']
@@ -359,7 +359,7 @@ class PrepareMulti:
         for n in (36, 41):
             lines[n] = str(self.config.time_end).join(lines[n].split('&T_END&'))
 
-        with open('{}.in'.format(chid), 'w+') as file:
+        with open(os.path.join(self.config.results_path, chid, f'{chid}.in'), 'w+') as file:
             file.writelines(lines)
 
     # append DataFrame to CSV file
@@ -368,7 +368,7 @@ class PrepareMulti:
         try:
             with open(path):
                 header = False
-            to_be_written = self.data_frame[iteration_no:]
+            to_be_written = self.data_frame[-iteration_no-1:]
         except FileNotFoundError:
             header = True
             to_be_written = self.data_frame
@@ -384,7 +384,7 @@ class PrepareMulti:
     def prepare_files(self, chid, calc_data, locafi_lines):
         # calc_data = (*self.fire_location, *section, d, self.ceiling, closest.layer.split('*')[0], *unit_v)
         dir_path = os.path.join(self.config.results_path, chid)
-        section_chid = calc_data[-4]
+        section_chid = calc_data[-6]
         section_coords = calc_data[3:6]
         unit_vector = np.array(calc_data[-3:]).astype(float)  # section orientation - to be improved
 
@@ -407,14 +407,26 @@ class PrepareMulti:
         self.write_dummy_structural(chid, section_coords, unit_vector)
 
     def do(self):
-        os.makedirs(self.config.results_path) if not os.path.exists(self.config.results_path) else None
-        gen = MCGenerator(self.config)
+        prev_s_no_max = 0
+        if os.path.exists(self.config.results_path):
+            for d in os.listdir(self.config.results_path):
+                try: 
+                    temp_s_no = int(d.split('_')[0])
+                except:
+                    continue
+                if temp_s_no > prev_s_no_max:
+                    prev_s_no_max = temp_s_no
+        else:
+            os.makedirs(self.config.results_path)
+
+        gen = MCGenerator(self.config)  # current set
         gen.sampling()
 
         t = sec()
         dfindex = 0
         for s_no, scenario in enumerate(gen.set):
             progress_bar('Preparing files', s_no, gen.n)
+            s_no += prev_s_no_max + 1
             scenario.prepare_locafi()
             scenario.map(self.structure)
             for c_no, calculation in enumerate(scenario.mapped):
@@ -423,14 +435,12 @@ class PrepareMulti:
                 self.prepare_files(chid, calculation, scenario.locafi_lines)
 
                 # save this calculation data to the data frame
-                breakpoint()
-                # ADD HRRPUA AND ALPHA TO DATA FRAME [WK]
-                self.data_frame.loc[dfindex] = [s_no, c_no, ctime(sec())] + calculation
+                self.data_frame.loc[dfindex+prev_s_no_max*2] = [s_no, c_no, ctime(sec())] + calculation
                 dfindex += 1
 
             save_interval = int(gen.n / 20)  # save 20 times
-            if s_no % save_interval == 0 and s_no > 0:
-                self.writedf2csv(s_no - save_interval)
+            if ((s_no-prev_s_no_max) % save_interval == 0) or (dfindex == gen.n*2):
+                self.writedf2csv(save_interval*2)   # two iterations for each scenario
         print(out(outpth, f'[OK] {dfindex} file sets were prepared ({round(sec() - t, 2)}) s'))
 
         return self.data_frame
@@ -438,15 +448,19 @@ class PrepareMulti:
 
 if __name__ == '__main__':
     outpth = './mc.log'
-    print(out(outpth, 'mc.py  Copyright (C) 2022  Kowalski W.'
+    print(out(outpth, '========================================================================================' 
+                      '\nmc.py  Copyright (C) 2022  Kowalski W.'
                       '\nThis program comes with ABSOLUTELY NO WARRANTY.'
                       '\nThis is free software, and you are welcome to redistribute it under certain conditions.'
-                      '\nSee GPLv3.0 for details (https://www.gnu.org/licenses/gpl-3.0.html).\n'))
+                      '\nSee GPLv3.0 for details (https://www.gnu.org/licenses/gpl-3.0.html).'
+                      '\n========================================================================================\n'))
 
     cfg = Config(sys.argv[1])
 
     preparations = PrepareMulti(cfg)
     preparations.do()
 
-    print(out(outpth, '\nThank you for using mcsteel package :)\n'
-                      'Visit project GitHub site: https://github.com/kowalskiw/mcsteel and contribute!\n'))
+    print(out(outpth, '========================================================================================'
+                      '\nThank you for using mcsteel package :)'
+                      '\nVisit project GitHub site: https://github.com/kowalskiw/mcsteel and contribute!'
+                      '\n========================================================================================\n'))
