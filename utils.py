@@ -1,9 +1,9 @@
-import os.path
 from datetime import datetime as dt1
-from os.path import isfile, basename, dirname
+from os.path import isfile, basename, dirname, abspath, join
 from os import chdir, getcwd
 import subprocess
 from shutil import copy2
+from numpy import random
 
 
 # running SAFIR simulation
@@ -20,6 +20,7 @@ def run_safir(in_file_path, safir_exe_path='C:\SAFIR\safir.exe', print_time=True
     print_all = verbose
     success = True
     count = 0
+    err_mess = ''
 
     # clear output
     while True:
@@ -39,6 +40,9 @@ def run_safir(in_file_path, safir_exe_path='C:\SAFIR\safir.exe', print_time=True
                 print_all = True
                 success = False
                 print('    ', output)
+                with open(f'{chid}.err', 'w') as errfile:
+                    errfile.write(output)
+                err_mess = output
             elif '======================' in output:
                 count += 1
             # check for timestep
@@ -56,10 +60,10 @@ def run_safir(in_file_path, safir_exe_path='C:\SAFIR\safir.exe', print_time=True
             print(f'[OK] SAFIR finished {count} "{chid}" calculations at{step}')
             print(f'[INFO] Computing time: {dt1.now() - start}')
             repair_relax(f'{dirpath}\\{chid}.XML') if fix_rlx else None
-            return 0
+            return 0, err_mess
         else:
             print(f'[WARNING] SAFIR finished "{chid}" calculations with error!')
-            return -1
+            return -1, err_mess
 
 
 # repair invalid relaxations results in XML file
@@ -96,9 +100,11 @@ def progress_bar(title, current, total, bar_length=20):
 
 
 # append to the output file
-def out(outfile, line):
+def out(outfile, line, silent=False):
     with open(outfile, 'a') as f:
         f.write(line + '\n')
+    if not silent:
+        print(line)
     return line
 
 
@@ -114,6 +120,13 @@ def user_config(user_file):
                 value = splited[-1]
             user[splited[0]] = value
     return user
+
+
+# triangular distribution sampler
+def triangular(left, right, mode=False):
+    if not mode:  # default mode in 1/3 of the left-right distance
+        mode = (right - left) / 3 + left
+    return random.triangular(left, mode, right)
 
 
 class Config:
@@ -201,10 +214,10 @@ def read_mech_input(path_to_frame):
 # return the input file path regarding to GiD catalogues or files with no further directory tree
 # (make this comment better, please)
 def find_paths(config_path, chid, shell=False):
-    in_paths = [os.path.join(config_path, f'{chid}.{i}') for i in ['in', 'IN', 'In', 'iN']]
-    tor_paths = [os.path.join(config_path, f'{chid}{i}') for i in ['-t.TOR', '-t.T0R', '.TOR', '.T0R']]
-    encaps_in_paths = [os.path.join(os.path.dirname(i), chid, os.path.basename(i)) for i in in_paths]
-    encaps_tor_paths = [os.path.join(os.path.dirname(i), chid, os.path.basename(i)) for i in tor_paths]
+    in_paths = [join(config_path, f'{chid}.{i}') for i in ['in', 'IN', 'In', 'iN']]
+    tor_paths = [join(config_path, f'{chid}{i}') for i in ['-t.TOR', '-t.T0R', '.TOR', '.T0R']]
+    encaps_in_paths = [join(dirname(i), chid, basename(i)) for i in in_paths]
+    encaps_tor_paths = [join(dirname(i), chid, basename(i)) for i in tor_paths]
     expected_paths_no = 2
 
     if shell:
@@ -214,7 +227,7 @@ def find_paths(config_path, chid, shell=False):
 
     def check(file_path):
         if isfile(file_path):
-            real_paths.append(os.path.abspath(file_path))
+            real_paths.append(abspath(file_path))
             return True
 
     for p in in_paths + encaps_in_paths:
@@ -230,10 +243,11 @@ def find_paths(config_path, chid, shell=False):
     else:
         raise FileNotFoundError('[ERROR] It is not possible to locate your {} thermal or torsion results. '
                                 'Check config path {}.'.format(chid, config_path))
+
 def find_paths2019(config_path, chid, shell=False):
-    gid_paths = [os.path.join(config_path, f'{chid}.gid', f'{chid}.{i}') for i in ['.in', '-1.T0R']]
-    other_in_path = [os.path.join(config_path, f'{chid}.{i}') for i in ['in', 'IN', 'In', 'iN']]
-    other_tor_paths = [os.path.join(config_path, f'{chid}{i}') for i in ['-1.T0R', '.T0R', '.t0r', '.tor', '.TOR']]
+    gid_paths = [join(config_path, f'{chid}.gid', f'{chid}.{i}') for i in ['.in', '-1.T0R']]
+    other_in_path = [join(config_path, f'{chid}.{i}') for i in ['in', 'IN', 'In', 'iN']]
+    other_tor_paths = [join(config_path, f'{chid}{i}') for i in ['-1.T0R', '.T0R', '.t0r', '.tor', '.TOR']]
     expected_paths_no = 2
 
     if shell:
@@ -245,7 +259,7 @@ def find_paths2019(config_path, chid, shell=False):
 
     def check(file_path):
         if isfile(file_path):
-            real_paths.append(os.path.abspath(file_path))
+            real_paths.append(abspath(file_path))
 
     # check if there are GiD directories with thermals
     [check(i) for i in gid_paths]

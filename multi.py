@@ -1,13 +1,14 @@
-from os import scandir, listdir, chdir
+from os import scandir, listdir, chdir, getcwd
+from os.path import join
 import numpy as np
+from sys import argv
 from pandas import read_csv, DataFrame, Series
-import sys
-from postprocess import temp_crit, summary
 from pandas.errors import EmptyDataError
-import os
 from time import time as sec
-from utils import Mechanical, run_safir, out, Config
 from datetime import timedelta as dt
+
+from utils import Mechanical, run_safir, out, Config
+from postprocess import temp_crit, summary
 
 global outpth
 
@@ -17,17 +18,19 @@ def linear_inter(point1, point2, x_i):
     return point1[1] + (x_i - point1[0]) / (point2[0] - point1[0]) * (point2[1] - point1[1])
 
 
-def mean_temp(amb_temp):
+# calculate timetable of average temperature in element
+# adequate for critical temperature (steel only)
+def get_temp_table(sim_path, amb_temp=20, ng_beam=2):
     temp_table = []
     nfiber = 0
     is_reading_temp = False
 
-    for i in range(1, 3):
+    for i in range(1, ng_beam + 1):
         temp = 0
         t = 0
         section_temp = []
 
-        with open('b00001_{}.tem'.format(i)) as file:
+        with open(join(sim_path, 'b00001_{}.tem'.format(i))) as file:
             tem = file.readlines()
 
         for line in tem:
@@ -44,7 +47,7 @@ def mean_temp(amb_temp):
             # try to save previous step mean cross-section temperature
             elif line.startswith('\n'):
                 try:
-                    section_temp.append([t, temp/nfiber])
+                    section_temp.append([t, temp / nfiber])
                 except UnboundLocalError:
                     pass
 
@@ -55,8 +58,9 @@ def mean_temp(amb_temp):
                     if fiber_temp >= amb_temp:
                         temp += fiber_temp
                     else:
-                        print('[WARNING] SafirError: Fiber temperature is lower than ambient ({} °C < {} °C)'.format(
-                            fiber_temp, amb_temp))
+                        out(outpth,
+                            '[WARNING] SafirError: Fiber temperature is lower than ambient ({} °C < {} °C)'.format(
+                                fiber_temp, amb_temp))
                         raise ChildProcessError
                 except (IndexError, UnboundLocalError, ValueError):
                     pass
@@ -68,10 +72,10 @@ def mean_temp(amb_temp):
 
 class Single:
     def __init__(self, scenario_data: Series, config: Config):
-        self.fire_id = scenario_data.fire_id
-        self.calc_no = scenario_data.calc_no
+        self.fire_id = int(scenario_data.fire_id)
+        self.calc_no = int(scenario_data.calc_no)
         self.chid = f'{self.fire_id}_{self.calc_no}'
-        self.dir_path = os.path.join(config.results_path, self.chid)
+        self.dir_path = join(config.results_path, self.chid)
         self.safir = config.safir_path
         self.data = scenario_data
         self.config_path = config.config_path
@@ -79,15 +83,18 @@ class Single:
 
 class ThermalOnly(Single):
     def calculate(self):
-        start_dir = os.getcwd()
+        start_dir = getcwd()
+        status = 1
+        err = f'No IN file in {self.dir_path}'
 
         for i in scandir(self.dir_path):
             if (not i.name.endswith('.in')) or i.name == '{}.in'.format(self.chid):
                 continue
-            run_safir(i.path, safir_exe_path=self.safir, fix_rlx=False)
+            status, err = run_safir(i.path, safir_exe_path=self.safir, fix_rlx=False)
             break
 
-        os.chdir(start_dir)
+        chdir(start_dir)
+        return status, err
 
 
 class Full(Single):
@@ -102,15 +109,15 @@ class Full(Single):
             st = sec()
             t.change_in(m.chid)
             t.run(self.safir)
-            print(f'Runtime of "{t.chid}" thermal analysis: {dt(seconds=int(sec() - st))}\n')
+            out(outpth, f'Runtime of "{t.chid}" thermal analysis: {dt(seconds=int(sec() - st))}\n')
 
         # run mechanical analysis
         st = sec()
         m.change_in()
         m.run(self.safir)
-        print(f'Runtime of "{m.chid}" mechanical analysis: {dt(seconds=int(sec() - st))}\n')
+        out(outpth, f'Runtime of "{m.chid}" mechanical analysis: {dt(seconds=int(sec() - st))}\n')
 
-        print(f'Summary "{m.chid}" runtime: {dt(seconds=int(sec() - start))}\n')
+        out(outpth, f'Summary "{m.chid}" runtime: {dt(seconds=int(sec() - start))}\n')
 
 
 class Queue:
@@ -118,51 +125,64 @@ class Queue:
         if scenarios_data_frame:
             self.df = scenarios_data_frame
         else:
-            self.df = read_csv(os.path.join(cfg.results_path, f'{cfg.title}_set.csv'))
+            self.df = read_csv(join(cfg.results_path, f'{cfg.title}_set.csv'))
         self.mode = mode
         self.config = cfg
         self.queue = []
         self.status = -2
+        self.results_df = self._create_or_load_df('results', ['ID', 'temp_max', 'time_crit'])
+        self.errors = self._create_or_load_df('errors', ['ID', 'error_type'])
+        self.to_compare = {}
+
+    def _create_or_load_df(self, content, columns):
         try:
-            self.results_df = read_csv('{}_results.csv'.format(self.config.title))
+            df = read_csv(join(self.config.results_path, f'{self.config.title}_{content}.csv'))
             try:
-                del self.results_df['Unnamed: 0']  # error in importing via rcsv
+                del df['Unnamed: 0']  # error in importing via rcsv
             except:
                 pass
         except (FileNotFoundError, EmptyDataError):
-            self.results_df = DataFrame(columns=['ID', 'temp_max', 'time_crit'])
-        self.to_compare = {}
+            df = DataFrame(columns=columns)
+        return df
 
-    def load_set(self):
-        for calc in self.df.iterrows():
-            if self.mode == 'full':
-                self.queue.append(Full(calc[1], self.config))
-            elif not self.mode:
-                self.queue.append(ThermalOnly(calc[1], self.config))
+    @property
+    def n(self):
+        return len(self.queue)
 
     # append DataFrame to CSV file
-    def writedf2csv(self, iteration_no):
-        path = os.path.join(self.config.results_path, f'{self.config.title}_results.csv')
+    def _writedf2csv(self, no_of_scenarios_2_save: int):
+        if self.results_df.empty:
+            return False
+        path = join(self.config.results_path, f'{self.config.title}_results.csv')
         try:
             with open(path):
                 header = False
-            to_be_written = self.results_df[iteration_no:]
+            to_be_written = self.results_df[-no_of_scenarios_2_save:]
         except FileNotFoundError:
             header = True
             to_be_written = self.results_df
 
-        to_be_written.to_csv(path_or_buf=path, mode='a', header=header)
+        to_be_written.to_csv(path_or_buf=path, mode='a', header=header, index=False)
+        return True
 
-    def set_status(self, rmses, iter_number, rmse_limit=0.001):
+    def _save(self, current_i_index: int, last_saved: int):
+        if current_i_index == last_saved:
+            return False
+        self._writedf2csv(int((current_i_index - last_saved) / 2))
+        # consider summary a method
+        self._set_status(summary(self.results_df, temp_crit(self.config.miu), self.config.RSET,
+                                 savepath=self.config.results_path), len(self.results_df.index))
+        return current_i_index
+
+    def _set_status(self, rmses, iter_number, rmse_limit=0.001):
         if all([e < rmse_limit for e in rmses]):
-            self.status = 2     # to be finished due to RMSE limit
-        elif iter_number >= self.config.max_iterations:
-            self.status = 1     # to be finished due to number of iterations limit
+            breakpoint()
+            self.status = 2  # to be finished due to RMSE limit
         else:
-            self.status = -1     # to be continued
+            self.status = -1  # to be continued
 
     # find the results of the fire scenario
-    def compare(self):
+    def _compare(self):
         # find results of calculation from temperature tab
         def results(temp_tab):
             if type(temp_tab) == int:  # no element above the fire - max temp = ambient
@@ -189,7 +209,7 @@ class Queue:
         theta_a_cr = temp_crit(self.config.miu)
 
         # create list of data to compare
-        fire_res = [[str(chid), *results(temp_tab)] for chid, temp_tab in self.to_compare.items()]
+        fire_res = [[scen.split('_')[0], *results(temp_tab)] for scen, temp_tab in self.to_compare.items()]
 
         # find the worst section (the most heated one) to use it as a result of the fire scenario
         chids, temps, times = zip(*fire_res)
@@ -202,78 +222,71 @@ class Queue:
         else:
             the_worst = [j[temps.index(max(temps))] for j in [chids, temps, times]]
 
+        self.to_compare.clear()
+
         return the_worst
 
+    def load_set(self):
+        for calc in self.df.iterrows():
+            if self.mode == 'full':
+                self.queue.append(Full(calc[1], self.config))
+            elif not self.mode:
+                self.queue.append(ThermalOnly(calc[1], self.config))
+
     def run(self):
-        def err(id: str, error_type: str):
-            self.to_compare.clear()
-            errors.append(f'{id},{error_type}\n')
+        saves_no = 10
+        # save every second iteration = save every scenario (when saves_no = self.queue)
+        save_interval = max([int(self.n / saves_no), 2])
+        last_saved = 0
 
-        current_fire_id = int
-        errors = ['ID,error_type\n']
-
+        # (I) iterate over tasks in queue
         for n, i in enumerate(self.queue):
-            # check if scenario is in results
-            if i.fire_id in self.results_df.ID.tolist():
-                print('    Scenario {} has been already calculated. Continuing...'.format(i.fire_id))
+            # (0a) check if iteration is a part of an erroneous scenario
+            if any(self.errors.ID.isin([i.fire_id])):
+                out(outpth, f'[ERROR] Scenario {i.fire_id} is affected by'
+                            f' {self.errors.loc[self.errors["ID"] == i.fire_id].error_type[0]}. Passing {i.chid}.')
+                last_saved = n
                 continue
 
-            print('\n {} calculations started...'.format(i.chid))
-
-            # check if simulation is a part of an error scenario
-            try:
-                for e in errors:
-                    esplt = e.split(',')
-                    if esplt[0] == i.fire_id:
-                        print(f'[ERROR] Scenario {i.fire_id} is affected by {esplt[1][:-1]}. Passing {i.chid}.')
-                        raise AttributeError
-            except AttributeError:
+            # (0b) check if scenario is in results
+            if any(self.results_df.ID.isin([i.fire_id])):
+                out(outpth, '    Scenario {} has been already calculated. Continuing...'.format(i.fire_id))
+                last_saved = n
                 continue
 
-            # save results of fire scenario to the Data Frame
-            if i.fire_id != current_fire_id and len(self.to_compare) == 2 and not self.mode:
-                self.results_df.loc[len(self.results_df)] = self.compare()
-                current_fire_id = i.fire_id
+            out(outpth, '\n {} calculations started...'.format(i.chid))
 
-            # run calculations
-            chdir(i.dir_path)
-            self.to_compare[i.chid] = i.calculate()
-
-            # if no element above the fire base
-            dirs = listdir()
-            if '{}.err'.format(i.chid) in dirs and not self.mode:
-                self.to_compare[i.chid] = 20
-                print('[OK] {} calculations finished'.format(i.chid))
+            # (1) run iteration calculations
+            i_stat, i_err_mess = i.calculate()
+            # (2) in case of SAFIR error utils.run_safir saves .err file and returns nonzero
+            #    we don't want both iterations of erroneous scenario to be taken as results
+            if i_stat != 0:
+                self.to_compare.clear()
+                self.errors = self.errors.append({'ID': i.fire_id, 'error_type': i_err_mess}, ignore_index=True)
+                self.results_df = self.results_df.append({'ID': i.fire_id}, ignore_index=True)
+                out(outpth, '[ERROR] Scenario {} finished with FatalSafirError'.format(i.chid))
                 continue
+            # (3) average temperature functions of time from subsequent iterations within scenario are saved
+            self.to_compare[i.chid] = get_temp_table(i.dir_path)
+            # (4a) scenario that quicker reached threshold (critical temp for steel) is saved as scenario result
+            # (4b) results of fire scenario are saved to the Data Frame
+            if len(self.to_compare) == 2 and not self.mode:
+                self.results_df.loc[len(self.results_df)] = self._compare()
 
-            #i_results = i.calculate()
-            # FatalSafirError
-            for d in dirs:
-                if d.endswith('err'):
-                    err(i.fire_id, 'FatalSafirError')  # remove scenario (both syms & add them to err.csv)
-                    print('[ERROR] Scenario {} finished with FatalSafirError'.format(i.chid))
+            # if not self.mode:  # [WK] not sure why this is needed here
+            out(outpth, f'[OK] {i.chid} calculations finished')
 
-#            if not i_results:
-#                breakpoint()
-#                err(i.fire_id, 'FiberTemperatureError')  # remove scenario (both syms & add them to err.csv)
-#                print(f'[ERROR] Scenario {i.chid} finished with FiberTemperatureError')
-#                continue
+            # (5) save results (CSV,txt and distributions) at every save_interval
+            if (n + 1) % save_interval == 0 and n != 0:
+                last_saved = self._save(n, last_saved)
 
-            if not self.mode:
-                self.to_compare[i.chid] = mean_temp(20)
-                print(f'[OK] {i.chid} calculations finished')
+            # (6) check for end condition
+            if self.status >= 0:
+                return self.status
 
-                # save results to files every 5% of progress
-                print(bool(int((n+1)) % int(len(self.queue) / 50) == 0))
-                if int((n+1)) % int(len(self.queue)  / 50) == 0 and n != 0:
-                    self.writedf2csv(n)
-                    self.set_status(summary(self.results_df, temp_crit(self.config.miu), self.config.RSET,
-                                            savepath=self.config.results_path), len(self.results_df.index))
-
-                if self.status >= 0:
-                    return self.status
-
-        return self.status
+        # (II) when queue gets emptied save remaining scenarios results
+        self._save(self.n - 1, last_saved)
+        return 1
 
 
 '''Run multisimulation on cluster'''
@@ -299,20 +312,20 @@ class Cluster:
 
 if __name__ == '__main__':
     outpth = './multi.log'
-    print(out(outpth, '========================================================================================'
-                      '\nmulti.py  Copyright (C) 2022  Kowalski W.'
-                      '\nThis program comes with ABSOLUTELY NO WARRANTY.'
-                      '\nThis is free software, and you are welcome to redistribute it under certain conditions.'
-                      '\nSee GPLv3.0 for details (https://www.gnu.org/licenses/gpl-3.0.html).'
-                      '\n========================================================================================\n'))
+    out(outpth, '========================================================================================'
+                '\nmulti.py  Copyright (C) 2022  Kowalski W.'
+                '\nThis program comes with ABSOLUTELY NO WARRANTY.'
+                '\nThis is free software, and you are welcome to redistribute it under certain conditions.'
+                '\nSee GPLv3.0 for details (https://www.gnu.org/licenses/gpl-3.0.html).'
+                '\n========================================================================================\n')
 
-    cfg = Config(sys.argv[1])
+    cfg = Config(argv[1])
 
     q = Queue(cfg)
     q.load_set()
-    q.run()
-
-    print(out(outpth, '========================================================================================'
-                      '\nThank you for using mcsteel package :)'
-                      '\nVisit project GitHub site: https://github.com/kowalskiw/mcsteel and contribute!'
-                      '\n========================================================================================\n'))
+    endstat = q.run()
+    out(outpth, f'[INFO] Finished multi.py with status {endstat}')
+    out(outpth, '========================================================================================'
+                '\nThank you for using mcsteel package :)'
+                '\nVisit project GitHub site: https://github.com/kowalskiw/mcsteel and contribute!'
+                '\n========================================================================================\n')
