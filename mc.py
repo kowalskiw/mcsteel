@@ -215,8 +215,8 @@ class Iteration:
 
     def copy_section(self, section_chid):
         copy2(self.config.section_path(section_chid), self.dir_path)
-        ThermalTEM(1, [section_chid, [], []], self.config.config_path, 'lcf', self.config.time_end, self.dir_path).\
-            change_in(os.path.basename(self.dir_path))
+        ThermalTEM(1, [section_chid, [], []], self.config.config_path, 'lcf',
+                   self.config.time_end, self.dir_path).change_in(os.path.basename(self.dir_path))
 
     def write_dummy_structural(self, section: list, unit_v: np.array):
         # calculate nodes position
@@ -430,6 +430,7 @@ class Multisimulation:
 
         t = sec()
         dfindex = 0
+        save_interval = max([int(gen.n / 20), 2])  # save 20 times
         for s_no, scenario in enumerate(gen.set):
             progress_bar('Preparing files', s_no, gen.n)
             s_no += prev_s_no_max + 1
@@ -443,7 +444,6 @@ class Multisimulation:
                 self.data_frame.loc[dfindex+prev_s_no_max*2] = [s_no, i_no, ctime(sec())] + data
                 dfindex += 1
 
-            save_interval = int(gen.n / 20)  # save 20 times
             if ((s_no-prev_s_no_max) % save_interval == 0) or (dfindex == gen.n*2):
                 self._writedf2csv(save_interval*2)   # two iterations for each scenario
         out(outpth, f'[OK] {dfindex} file sets were prepared ({round(sec() - t, 2)}) s           ')

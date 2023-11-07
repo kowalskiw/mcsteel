@@ -16,25 +16,30 @@ def run_safir(in_file_path, safir_exe_path='C:\SAFIR\safir.exe', print_time=True
     chid = basename(in_file_path)[:-3]
 
     print(f'Reading {chid}.in file...')
-    process = subprocess.Popen(' '.join([safir_exe_path, chid]), shell=False, stdout=subprocess.PIPE)
+    process = subprocess.Popen(' '.join([safir_exe_path, chid]), shell=False,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     print_all = verbose
     success = True
     count = 0
     err_mess = ''
 
     # clear output
+    storage = []
+    n = 0
     while True:
+        n+=1
         if process.poll() is not None:
             break
         try:
             output = process.stdout.readline().strip().decode()
         except UnicodeError:
             continue
+        # else print SAFIR output
         if output:
             step = output[7:]
             if print_all:
                 print('    ', output)
-            # check for errors
+            # check for errors in stdout (handled errors from SAFIR are redirected to stdout)
             elif 'ERROR' in output or 'forrtl' in output:
                 print('[ERROR] FatalSafirError: ')
                 print_all = True
@@ -43,7 +48,8 @@ def run_safir(in_file_path, safir_exe_path='C:\SAFIR\safir.exe', print_time=True
                 with open(f'{chid}.err', 'w') as errfile:
                     errfile.write(output)
                 err_mess = output
-            elif '======================' in output:
+            # look for characters at the beginning of the simulation
+            if '======================' in output:
                 count += 1
             # check for timestep
             elif 'time' in output:
@@ -64,6 +70,16 @@ def run_safir(in_file_path, safir_exe_path='C:\SAFIR\safir.exe', print_time=True
         else:
             print(f'[WARNING] SAFIR finished "{chid}" calculations with error!')
             return -1, err_mess
+    else:
+        err = process.stderr.read().decode()
+        # check for errors
+        if err:
+            print('[ERROR] FatalSafirError: ')
+            print('    ', err)
+            with open(f'{chid}.err', 'w') as errfile:
+                errfile.write(err)
+            return -1, err
+        raise ChildProcessError('Something went wrong with SAFIR subprocess')
 
 
 # repair invalid relaxations results in XML file
@@ -306,6 +322,7 @@ class ThermalTEM:
         # make changes
         for no in range(len(init)):
             line = init[no]
+            spltd_l = line.split()
             # type of calculation
             if line == 'MAKE.TEM\n' and self.model not in {'cold', 'f20', 'iso', 'fiso', 'standard'}:
                 if self.model in {'cfd', 'fds'}:
@@ -319,9 +336,9 @@ class ThermalTEM:
                 [init.insert(no + 1, i) for i in ['BEAM_TYPE {}\n'.format(self.beam_type), '{}.in\n'.format(mech_chid)]]
 
             # change thermal attack functions
-            elif line.startswith('   F  ') and 'FISO' in line:  # choose heating boundaries with FISO or FISO0 frontier
+            elif ('F' in spltd_l) and ('FISO' in spltd_l):  # choose heating boundaries with FISO or FISO0 frontier
                 # change FISO0 to FISO
-                if 'FISO0' in line:
+                if 'FISO0' in spltd_l:
                     line = 'FISO'.join(line.split('FISO0'))
 
                 # choose function to be changed with
@@ -339,10 +356,13 @@ class ThermalTEM:
                     init[no] = 'F20'.join(line.split('FISO'))
 
                 elif 'F20' not in line:
-                    init[no] = 'FLUX {}'.format(thermal_attack.join(line[4:].split('FISO')))
+                    init[no] = f'FLUX {" ".join(map(lambda x: x.replace("FISO", thermal_attack), line.split()[1:]))}\n'
                 else:
-                    init[no] = 'FLUX {}'.format('NO'.join((thermal_attack.join(line[4:].split('FISO'))).split('F20')))
-                    init.insert(no + 1, 'NO'.join(line.split('FISO')))
+                    # replace FISO frontiers with thermal_attack FLUX
+                    init[no] = f'FLUX {" ".join(map(lambda x: x.replace("FISO", thermal_attack), line.split()[1:]))}\n'
+                    init[no] = " ".join(map(lambda x: x.replace("F20", "NO"), init[no].split()))
+                    # append remaining F20 frontiers
+                    init.insert(no+1, 'NO'.join(line.split('FISO')) + '\n')
 
             # change convective heat transfer coefficient of steel to 35 in locafi mode according to EN1991-1-2
             elif self.model in {'lcf', 'locafi', 'hsm', 'hasemi'} and 'STEEL' in line:

@@ -1,8 +1,8 @@
-from os import scandir, listdir, chdir, getcwd
+from os import scandir, chdir, getcwd
 from os.path import join
 import numpy as np
 from sys import argv
-from pandas import read_csv, DataFrame, Series
+from pandas import DataFrame, Series, read_csv, concat
 from pandas.errors import EmptyDataError
 from time import time as sec
 from datetime import timedelta as dt
@@ -150,17 +150,17 @@ class Queue:
         return len(self.queue)
 
     # append DataFrame to CSV file
-    def _writedf2csv(self, no_of_scenarios_2_save: int):
-        if self.results_df.empty:
+    def _writedf2csv(self, scenarios_2_save: DataFrame, ext='results'):
+        if scenarios_2_save.empty:
             return False
-        path = join(self.config.results_path, f'{self.config.title}_results.csv')
+        path = join(self.config.results_path, f'{self.config.title}_{ext}.csv')
         try:
             with open(path):
                 header = False
-            to_be_written = self.results_df[-no_of_scenarios_2_save:]
+            to_be_written = scenarios_2_save
         except FileNotFoundError:
             header = True
-            to_be_written = self.results_df
+            to_be_written = scenarios_2_save
 
         to_be_written.to_csv(path_or_buf=path, mode='a', header=header, index=False)
         return True
@@ -168,7 +168,7 @@ class Queue:
     def _save(self, current_i_index: int, last_saved: int):
         if current_i_index == last_saved:
             return False
-        self._writedf2csv(int((current_i_index - last_saved) / 2))
+        self._writedf2csv(self.results_df[int((current_i_index - last_saved) / 2):])
         # consider summary a method
         self._set_status(summary(self.results_df, temp_crit(self.config.miu), self.config.RSET,
                                  savepath=self.config.results_path), len(self.results_df.index))
@@ -176,7 +176,6 @@ class Queue:
 
     def _set_status(self, rmses, iter_number, rmse_limit=0.001):
         if all([e < rmse_limit for e in rmses]):
-            breakpoint()
             self.status = 2  # to be finished due to RMSE limit
         else:
             self.status = -1  # to be continued
@@ -234,9 +233,9 @@ class Queue:
                 self.queue.append(ThermalOnly(calc[1], self.config))
 
     def run(self):
-        saves_no = 10
+        saves_no = 40
         # save every second iteration = save every scenario (when saves_no = self.queue)
-        save_interval = max([int(self.n / saves_no), 2])
+        save_interval = max([int(self.n / saves_no)*2, 2])
         last_saved = 0
 
         # (I) iterate over tasks in queue
@@ -262,9 +261,10 @@ class Queue:
             #    we don't want both iterations of erroneous scenario to be taken as results
             if i_stat != 0:
                 self.to_compare.clear()
-                self.errors = self.errors.append({'ID': i.fire_id, 'error_type': i_err_mess}, ignore_index=True)
-                self.results_df = self.results_df.append({'ID': i.fire_id}, ignore_index=True)
-                out(outpth, '[ERROR] Scenario {} finished with FatalSafirError'.format(i.chid))
+                err = [i.fire_id, i_err_mess]
+                self._writedf2csv(DataFrame([err], columns=['ID', 'error_type']), ext='errors')
+                self.results_df = concat([self.results_df, DataFrame([[i.fire_id]], columns=['ID'])], ignore_index=True)
+                out(outpth, f'[ERROR] Scenario {i.chid} finished with FatalSafirError: {i_err_mess}')
                 continue
             # (3) average temperature functions of time from subsequent iterations within scenario are saved
             self.to_compare[i.chid] = get_temp_table(i.dir_path)
@@ -278,6 +278,7 @@ class Queue:
 
             # (5) save results (CSV,txt and distributions) at every save_interval
             if (n + 1) % save_interval == 0 and n != 0:
+                # [WK] problem with writing - sth like up to n IDs are written
                 last_saved = self._save(n, last_saved)
 
             # (6) check for end condition
