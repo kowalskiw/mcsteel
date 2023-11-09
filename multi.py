@@ -168,7 +168,7 @@ class Queue:
     def _save(self, current_i_index: int, last_saved: int):
         if current_i_index == last_saved:
             return False
-        self._writedf2csv(self.results_df[int((current_i_index - last_saved) / 2):])
+        self._writedf2csv(self.results_df[int((last_saved - current_i_index) / 2):])
         # consider summary a method
         self._set_status(summary(self.results_df, temp_crit(self.config.miu), self.config.RSET,
                                  savepath=self.config.results_path), len(self.results_df.index))
@@ -233,7 +233,7 @@ class Queue:
                 self.queue.append(ThermalOnly(calc[1], self.config))
 
     def run(self):
-        saves_no = 40
+        saves_no = 20
         # save every second iteration = save every scenario (when saves_no = self.queue)
         save_interval = max([int(self.n / saves_no)*2, 2])
         last_saved = 0
@@ -278,7 +278,6 @@ class Queue:
 
             # (5) save results (CSV,txt and distributions) at every save_interval
             if (n + 1) % save_interval == 0 and n != 0:
-                # [WK] problem with writing - sth like up to n IDs are written
                 last_saved = self._save(n, last_saved)
 
             # (6) check for end condition
