@@ -241,15 +241,15 @@ class Queue:
         # (I) iterate over tasks in queue
         for n, i in enumerate(self.queue):
             # (0a) check if iteration is a part of an erroneous scenario
-            if any(self.errors.ID.isin([i.fire_id])):
-                out(outpth, f'[ERROR] Scenario {i.fire_id} is affected by'
-                            f' {self.errors.loc[self.errors["ID"] == i.fire_id].error_type[0]}. Passing {i.chid}.')
+            if any(self.errors.ID.isin([i.cfast_fire_id])):
+                out(outpth, f'[ERROR] Scenario {i.cfast_fire_id} is affected by'
+                            f' {self.errors.loc[self.errors["ID"] == i.cfast_fire_id].error_type[0]}. Passing {i.chid}.')
                 last_saved = n
                 continue
 
             # (0b) check if scenario is in results
-            if any(self.results_df.ID.isin([i.fire_id])):
-                out(outpth, '    Scenario {} has been already calculated. Continuing...'.format(i.fire_id))
+            if any(self.results_df.ID.isin([i.cfast_fire_id])):
+                out(outpth, '    Scenario {} has been already calculated. Continuing...'.format(i.cfast_fire_id))
                 last_saved = n
                 continue
 
@@ -261,9 +261,9 @@ class Queue:
             #    we don't want both iterations of erroneous scenario to be taken as results
             if i_stat != 0:
                 self.to_compare.clear()
-                err = [i.fire_id, i_err_mess]
+                err = [i.cfast_fire_id, i_err_mess]
                 self._writedf2csv(DataFrame([err], columns=['ID', 'error_type']), ext='errors')
-                self.results_df = concat([self.results_df, DataFrame([[i.fire_id]], columns=['ID'])], ignore_index=True)
+                self.results_df = concat([self.results_df, DataFrame([[i.cfast_fire_id]], columns=['ID'])], ignore_index=True)
                 out(outpth, f'[ERROR] Scenario {i.chid} finished with FatalSafirError: {i_err_mess}')
                 continue
             # (3) average temperature functions of time from subsequent iterations within scenario are saved

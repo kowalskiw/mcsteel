@@ -5,6 +5,7 @@ from time import ctime
 import numpy as np
 import dxfgrabber as dxf
 from pandas import DataFrame as df
+from pandas import read_csv
 import core
 from shutil import copy2
 import sys
@@ -363,11 +364,66 @@ class MCGenerator:
         return self.set
 
 
+class CFASTScenario(FireScenario):
+    def __init__(self, config_object: Config, path_to_cfast_dir, chid='cfast'):
+        self.cfast_dir = path_to_cfast_dir
+        self.cfast_chid = chid
+        self.cfast_fire_id = str()
+        fire_properties = self._cfast_fire_location()
+
+        super().__init__(config_object, fire_properties, None)
+
+    def _cfast_fire_location(self):
+        # chid.in
+        cfast_fire_location = list()
+        cfast_hrrpua = float()
+
+        with open(os.path.join(self.cfast_dir, f'{self.cfast_chid}.in')) as file:
+            lines = file.readlines()
+        for line in lines:
+            current_hrr = float()
+            if line.startswith('&FIRE') and not cfast_fire_location:
+                self.cfast_fire_id = line.split('FIRE_ID')[1].replace('\'', '"').split('"')[1]
+                candidates = line.split('LOCATION')[1].replace(',', ' ').replace('=', ' ').split()
+                for c in candidates:
+                    if len(cfast_fire_location) == 2:
+                        break
+                    try:
+                        cfast_fire_location.append(float(c))
+                    except TypeError:
+                        continue
+            elif line.startswith('&TABL') and self.cfast_fire_id in line and not cfast_hrrpua:
+                tabl_entry = list()
+                for entry in line.split('DATA')[1].replace(',', ' ').replace('=', ' ').split():
+                    try:
+                        tabl_entry.append(float(entry))
+                    except TypeError:
+                        # end of line symbol or another paramter string
+                        break
+                try:
+                    if tabl_entry[1] > current_hrr:
+                        current_hrr = tabl_entry[1]
+                        cfast_hrrpua = tabl_entry[1] / tabl_entry[3]
+                except KeyError:
+                    # no fire data yet
+                    continue
+
+        return None, cfast_hrrpua, cfast_fire_location
+
+    def create_fire_curve(self):
+        # chid_compartments.csv
+        # translate cfast fire curve to mcsteel
+        # [hrr_tab, diameter_tab]
+        df = read_csv(os.path.join(self.cfast_dir, f'{self.cfast_chid}_compartments.csv'))
+
+        self.fire_curve = []
+
+
 class Multisimulation:
     def __init__(self, config_object: Config):
         self.config = config_object
         self.structure = self._read_dxf()
-        self.data_frame = df(columns=['fire_id', 'calc_no', 'time', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s',
+        self.data_frame = df(columns=['cfast_fire_id', 'calc_no', 'time', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s',
                                       'distance', 'ceiling_lvl', 'profile', 'u_x', 'u_y', 'u_z', 'HRRPUA', 'alpha'])
 
     # read dxf geometry
