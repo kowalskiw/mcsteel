@@ -6,13 +6,13 @@ import numpy as np
 import dxfgrabber as dxf
 from pandas import DataFrame as df
 from pandas import read_csv
-import core
 from shutil import copy2
 import sys
 from numpy import random
 
-from utils import ThermalTEM, Config, progress_bar, out, triangular
-import fires
+from mcsteel.utils import ThermalTEM, Config, progress_bar, out, triangular
+import mcsteel.core
+import mcsteel.fires
 
 global outpth
 
@@ -196,7 +196,7 @@ class Iteration:
         if not all(self.fire.fire_curve):
             raise IndexError('[ERROR] Empty locafi_lines list')
         str_position = f'{"    ".join([str(c) for c in self.fire.fire_location])}'
-        lcf = core.locafi.copy()
+        lcf = mcsteel.core.locafi.copy()
 
         # insert value to the template
         def ins(arg, index): return lcf[index].split('*')[0] + str(arg) + lcf[index].split('*')[1]
@@ -236,7 +236,7 @@ class Iteration:
             raise ValueError('[ERROR] Zero length unit vector')
 
         # save nodes to a dummy.IN file
-        lines = core.dummy.copy()
+        lines = mcsteel.core.dummy.copy()
 
         def v2str(vector):
             return [str(i) for i in vector]
@@ -288,9 +288,9 @@ class MCGenerator:
         fuel_type = self.config.fuel.lower()
         fuel_full_path = os.path.join(self.config.config_path, f'{self.config.title}.fuel')
         if fuel_type == 'obj':
-            fuel = fires.FuelOBJ(fuel_full_path).read_fuel()
+            fuel = mcsteel.fires.FuelOBJ(fuel_full_path).read_fuel()
         elif fuel_type == 'step':
-            fuel = fires.Fuel(fuel_full_path).read_fuel()
+            fuel = mcsteel.fires.Fuel(fuel_full_path).read_fuel()
         else:
             fuel = fires.OldFuel(fuel_full_path).read_fuel()
 
@@ -369,54 +369,83 @@ class CFASTScenario(FireScenario):
         self.cfast_dir = path_to_cfast_dir
         self.cfast_chid = chid
         self.cfast_fire_id = str()
-        fire_properties = self._cfast_fire_location()
+        fire_properties, ceiling = self._cfast_extract_in()
 
         super().__init__(config_object, fire_properties, None)
+        self.ceiling = ceiling
 
-    def _cfast_fire_location(self):
-        # chid.in
+    @staticmethod
+    def _unify_characters(l: str):
+        for char in (',', '=', '/'):
+            l = l.replace(char, ' ')
+        return l
+
+    @staticmethod
+    def _get_fire_location(fireline: str):
+        return [float(i) for i in fireline.split('LOCATION')[1].split()[:2]]
+
+    @staticmethod
+    def _get_fire_id(fireline: str):
+        fire_id = fireline.split('FIRE_ID')[1].split()[0][1:-1]
+        compa_id = fireline.split('COMP_ID')[1].split()[0][1:-1]
+        return fire_id, compa_id
+
+    @staticmethod
+    def _get_hrr_area_record(tablline: str):
+        data =  tablline.split('DATA')[1].split()
+        return tuple(float(i) for i in (data[1], data[3]))
+
+    @staticmethod
+    def _get_room_height(compaline: str):
+        compa_id = compaline.split(' ID')[1].split()[0][1:-1]    # space to avoid i.e. WALL_MATL_ID
+        height = float(compaline.split('HEIGHT')[1].split()[0])
+        return compa_id, height
+
+    @staticmethod
+    def _calculate_hrrpua(hrr_area_tabl: list):
+        hrrs, areas = zip(*hrr_area_tabl)
+        return round(max(hrrs) / max(areas), 1)
+
+    ''' data extracted from chid.in '''
+    def _cfast_extract_in(self):
+        cfast_heights = dict()
         cfast_fire_location = list()
         cfast_hrrpua = float()
+        fire_data = list()
+        fire_id = str()
+        fire_compa = str()
 
         with open(os.path.join(self.cfast_dir, f'{self.cfast_chid}.in')) as file:
             lines = file.readlines()
-        for line in lines:
-            current_hrr = float()
-            if line.startswith('&FIRE') and not cfast_fire_location:
-                self.cfast_fire_id = line.split('FIRE_ID')[1].replace('\'', '"').split('"')[1]
-                candidates = line.split('LOCATION')[1].replace(',', ' ').replace('=', ' ').split()
-                for c in candidates:
-                    if len(cfast_fire_location) == 2:
-                        break
-                    try:
-                        cfast_fire_location.append(float(c))
-                    except TypeError:
-                        continue
-            elif line.startswith('&TABL') and self.cfast_fire_id in line and not cfast_hrrpua:
-                tabl_entry = list()
-                for entry in line.split('DATA')[1].replace(',', ' ').replace('=', ' ').split():
-                    try:
-                        tabl_entry.append(float(entry))
-                    except TypeError:
-                        # end of line symbol or another paramter string
-                        break
-                try:
-                    if tabl_entry[1] > current_hrr:
-                        current_hrr = tabl_entry[1]
-                        cfast_hrrpua = tabl_entry[1] / tabl_entry[3]
-                except KeyError:
-                    # no fire data yet
-                    continue
 
-        return None, cfast_hrrpua, cfast_fire_location
+        for line in lines:
+            if line.startswith('&COMP'):
+                line = self._unify_characters(line)
+                k, v = self._get_room_height(line)
+                cfast_heights[k] = v
+
+            elif not cfast_fire_location and line.startswith('&FIRE'):
+                line = self._unify_characters(line)
+                cfast_fire_location = self._get_fire_location(line)
+                fire_id, fire_compa = self._get_fire_id(line)
+
+            elif not cfast_hrrpua and line.startswith('&TABL') and 'LABELS' not in line and fire_id in line:
+                line = self._unify_characters(line)
+                fire_data.append(self._get_hrr_area_record(line))
+
+        return (None, self._calculate_hrrpua(fire_data), cfast_fire_location), cfast_heights[fire_compa]
 
     def create_fire_curve(self):
         # chid_compartments.csv
         # translate cfast fire curve to mcsteel
         # [hrr_tab, diameter_tab]
         df = read_csv(os.path.join(self.cfast_dir, f'{self.cfast_chid}_compartments.csv'))
+        df = df.iloc[3:][['Time', 'HRR_1']].astype(float)
 
-        self.fire_curve = []
+        def hrr2diam(hrr): return round(2 * np.sqrt(hrr / self.hrrpua / 1e3 / np.pi), 2)
+        df['diam'] = df['HRR_1'].apply(hrr2diam)
+
+        self.fire_curve = [i.values.tolist() for i in (df[['Time', 'HRR_1']], df[['Time', 'diam']])]
 
 
 class Multisimulation:

@@ -151,15 +151,16 @@ class Config:
         self.title = self.config['title']
         self.config_path = self.config['config_path']
         self.results_path = self.config['results_path']
-        self.safir_path = self.optional('safir_path')
         self.fire_type = self.config['fire_type']
+        self.safir_path = self.optional('safir_path')
         self.miu = self.optional('miu')
         self.RSET = self.config['RSET']
         self.max_iterations = self.optional('max_iterations')
         self.stop_condition = self.config['stop_condition']
         self.time_end = self.config['time_end']
-        self.fuel = self.config['fuel']
         self.occupancy = self.optional('occupancy')
+        if self.fire_type.lower() != 'cfast':
+            self.fuel = self.config['fuel']
         print('[OK] Configuration file loaded')
 
     def optional(self, key):
