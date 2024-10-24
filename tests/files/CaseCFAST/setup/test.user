@@ -1,0 +1,9 @@
+config_path = .
+results_path = results
+title = test_safir2022
+fire_type = cfast
+miu = 0.7
+RSET = 500
+max_iterations = 20
+stop_condition = none
+time_end = 1800
