@@ -1,5 +1,5 @@
 import os.path
-from os import makedirs
+from os import makedirs, scandir
 from time import time as sec
 from time import ctime
 import numpy as np
@@ -9,6 +9,7 @@ from pandas import read_csv
 from shutil import copy2
 import sys
 from numpy import random
+from statistics import fmean
 
 from mcsteel.utils import ThermalTEM, Config, progress_bar, out, triangular
 import mcsteel.core
@@ -170,11 +171,11 @@ class FireScenario:
     def create_fire_curve(self):
         # fire area is limited only by model limitation implemented to the fires.Properties
         if 'alfat2' in self.fire_type:
-            f = fires.AlfaT2(self.config.time_end, self.alpha, self.hrrpua)
+            f = mcsteel.fires.AlfaT2(self.config.time_end, self.alpha, self.hrrpua)
         elif 'sprink-eff' in type:
-            f = fires.SprinkEff(self.config.time_end, self.alpha, self.hrrpua, self.sprinklers)
+            f = mcsteel.fires.SprinkEff(self.config.time_end, self.alpha, self.hrrpua, self.sprinklers)
         elif 'sprink-noeff' in type:
-            f = fires.SprinkNoEff(self.config.time_end, self.alpha, self.hrrpua, self.sprinklers)
+            f = mcsteel.fires.SprinkNoEff(self.config.time_end, self.alpha, self.hrrpua, self.sprinklers)
         else:
             raise KeyError(f'[ERROR] {self.fire_type} is not a proper fire type')
 
@@ -278,7 +279,7 @@ class MCGenerator:
     def __init__(self, config_object: Config):
         self.config = config_object
         self.n = self.config.max_iterations if self.config.max_iterations else 100  # size of the sample
-        self.fuel = self._read_fuel()  # fuel distribution and properties
+        self.fuel = self._read_fuel() if self.config.fire_type.lower() != 'cfast' else None  # fuel distribution and properties
         self.set = []
 
     def _read_fuel(self):
@@ -292,12 +293,13 @@ class MCGenerator:
         elif fuel_type == 'step':
             fuel = mcsteel.fires.Fuel(fuel_full_path).read_fuel()
         else:
-            fuel = fires.OldFuel(fuel_full_path).read_fuel()
+            fuel = mcsteel.fires.OldFuel(fuel_full_path).read_fuel()
 
         out(outpth, f'[OK] Fuel configuration imported ({round(sec() - t0, 2)} s)                      ')
         return fuel
 
-    def _find_hrrpua(self, fire_z, properties):
+    @staticmethod
+    def _find_hrrpua(fire_z, properties):
         # calculate HRRPUA according to triangular distribution specified by user
         upward = properties.ZB - fire_z
         downward = fire_z - properties.ZA
@@ -357,10 +359,23 @@ class MCGenerator:
     # main MC-sampling function for fire
     def sampling(self):
         t = sec()
+
+        if self.config.fire_type.lower() == 'cfast':
+            cfast_subdirs = []
+            for i in scandir(os.path.join(self.config.config_path, 'cfast')):
+                cfast_subdirs.append(i.path) if i.is_dir() else None
+
         for i in range(self.n):
             progress_bar('Monte Carlo sampling', i, self.n)
-            self.set.append(FireScenario(self.config, *self._find_fire()))
-        out(outpth, f'[OK] {self.n} fire scenarios were chosen ({round(sec() - t, 2)}) s                  ')
+            if self.config.fire_type.lower() == 'cfast':
+                try:
+                    self.set.append(CFASTScenario(self.config, cfast_subdirs[i]))
+                except IndexError:
+                    out(outpth, f'[WARNING] Not enough CFAST files. {self.n} fire scenarios were requested in .USER file.'
+                                f' Proceeding with {i} scenarios')
+            else:
+                self.set.append(FireScenario(self.config, *self._find_fire()))
+        out(outpth, f'[OK] {self.n} fire scenarios were chosen ({round(sec() - t, 3)}) s                  ')
         return self.set
 
 
@@ -381,25 +396,26 @@ class CFASTScenario(FireScenario):
         return l
 
     @staticmethod
-    def _get_fire_location(fireline: str):
+    def _get_fire_xy_location(fireline: str):
         return [float(i) for i in fireline.split('LOCATION')[1].split()[:2]]
 
     @staticmethod
-    def _get_fire_id(fireline: str):
+    def _get_fire_compa_ids(fireline: str):
         fire_id = fireline.split('FIRE_ID')[1].split()[0][1:-1]
         compa_id = fireline.split('COMP_ID')[1].split()[0][1:-1]
         return fire_id, compa_id
 
     @staticmethod
-    def _get_hrr_area_record(tablline: str):
+    def _get_hrr_height_area_record(tablline: str):
         data =  tablline.split('DATA')[1].split()
-        return tuple(float(i) for i in (data[1], data[3]))
+        return tuple(float(i) for i in data[1:4])
 
     @staticmethod
     def _get_room_height(compaline: str):
         compa_id = compaline.split(' ID')[1].split()[0][1:-1]    # space to avoid i.e. WALL_MATL_ID
         height = float(compaline.split('HEIGHT')[1].split()[0])
-        return compa_id, height
+        baseline_z =  float(compaline.split('ORIGIN')[1].split()[2])
+        return compa_id, (baseline_z, height)
 
     @staticmethod
     def _calculate_hrrpua(hrr_area_tabl: list):
@@ -410,6 +426,7 @@ class CFASTScenario(FireScenario):
     def _cfast_extract_in(self):
         cfast_heights = dict()
         cfast_fire_location = list()
+        fire_base_z_tbl = list()
         cfast_hrrpua = float()
         fire_data = list()
         fire_id = str()
@@ -426,14 +443,18 @@ class CFASTScenario(FireScenario):
 
             elif not cfast_fire_location and line.startswith('&FIRE'):
                 line = self._unify_characters(line)
-                cfast_fire_location = self._get_fire_location(line)
-                fire_id, fire_compa = self._get_fire_id(line)
+                cfast_fire_location = self._get_fire_xy_location(line)
+                fire_id, fire_compa = self._get_fire_compa_ids(line)
 
             elif not cfast_hrrpua and line.startswith('&TABL') and 'LABELS' not in line and fire_id in line:
                 line = self._unify_characters(line)
-                fire_data.append(self._get_hrr_area_record(line))
+                hrr, height, area = self._get_hrr_height_area_record(line)
+                fire_data.append((hrr, area))
+                fire_base_z_tbl.append(height)
 
-        return (None, self._calculate_hrrpua(fire_data), cfast_fire_location), cfast_heights[fire_compa]
+        cfast_fire_location.append(fmean(fire_base_z_tbl) + cfast_heights[fire_compa][0])
+
+        return (None, self._calculate_hrrpua(fire_data), cfast_fire_location), sum(cfast_heights[fire_compa])
 
     def create_fire_curve(self):
         # chid_compartments.csv
