@@ -1,0 +1,9 @@
+config_path = config
+results_path = results
+title = test
+fire_type = cfast
+miu = 0.7
+RSET = 500
+max_iterations = 4
+stop_condition = none
+time_end = 1800
