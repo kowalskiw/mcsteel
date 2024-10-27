@@ -32,138 +32,141 @@ class FireScenario:
         self.ceiling = 1e5  # level of ceiling above the fire source (here the space begins!)
         self.locafi_lines = []  # lines for locafi.txt fire file
 
+    # select the most exposed section among the lines and return its config
+    # [WK] DEBUG continue with this function!
+    def map_lines(self, element, structure):
+        # no element exception
+        lins = structure['f']
+        if lins.__len__() == 0:
+            return [*self.fire_location, None, None, None, None, self.ceiling, None, None, None, None, None, None]
+
+        d = 1e10  # infinitely large number
+        closest = None
+
+        # return vectors for further calculations (line_start[0], line_end[1], fire[2], es[3], fs[4], fe[5], se[6])
+        # find references
+        def vectors(single_line):
+            l_start = np.array(single_line.start)
+            l_end = np.array(single_line.end)
+            fire = np.array(self.fire_location)
+
+            return l_start, l_end, fire, l_end - l_start, fire - l_start, fire - l_end, l_start - l_end
+
+        # iterate over lines to select the closest to the fire
+        for line in lins:
+            v = vectors(line)
+
+            # here begins orthogonal projection module
+            # calculate cosine between two vectors
+            def cos_vec(v1, v2):
+                return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+
+            # check if point of fire source has an orthogonal projection on the line
+            if cos_vec(v[3], v[4]) >= 0 and cos_vec(v[6], v[5]) >= 0:
+                # calculate distance from point to its orthogonal projection on line
+                d_iter = np.linalg.norm(np.cross(v[3], v[4])) / np.linalg.norm(v[3])
+            else:  # choose the nearest edge if not
+                d_iter = min([np.linalg.norm(v[2] - v[0]), (np.linalg.norm(v[2] - v[0]))])
+
+            # overwrite with analysed line if it is closer to the fire then the already chosen
+            if d_iter < d:
+                d = d_iter
+                closest = line
+        v = vectors(closest)  # generate vectors for selected line
+        section = v[0] + min([1, (np.dot(v[4], v[3]) / np.dot(v[3], v[3]))]) * v[3]
+
+        unit_v = v[3] / np.linalg.norm(v[3])  # unit vector of selected line
+
+        # set column's section to the biggest heat flux height (1.2m from the fire base)
+        if element == 'c':
+            # check if addition 1.2 m to the section Z is possible
+            if section[-1] + 1.2 < max([v[1][-1], v[0][-1]]):
+                section += [0, 0, 1.2]
+            else:
+                section[-1] = max([v[1][-1], v[0][-1]])
+        generated = [*self.fire_location, *section, d, self.ceiling, closest.layer.split('*')[0], *unit_v,
+                     self.hrrpua, self.alpha]
+
+        structure['f'].clear()  # clear temporary layout 'foo'
+
+        # fire coords(list), section coords(list), length of the fire-section vector(float),
+        # level of shell above the fire(float), profile(string), unit vector
+        return generated
+
+    # remove elements beneath the fire base or above shell level from the lines
+    # cut those between the values
+    def cut_lines(self, lines, structure):
+        for line in lines:
+            print(line)
+            # start point cannot be higher than end point
+            if line.start[2] > line.end[2]:
+                start_rev = line.end
+                end_rev = line.start
+                line.start = start_rev
+                line.end = end_rev
+
+            z1 = line.start[2]
+            z2 = line.end[2]
+            # do not consider lines beneath the fire base or above the ceiling
+            if z2 <= self.fire_location[2] or z1 >= self.ceiling:
+                continue
+            # accept lines in (fire base, ceiling) ranges
+            elif z1 > self.fire_location[2] and z2 < self.ceiling:
+                structure['f'].append(line)
+            # cut lines to (fire base, ceiling) ranges with 0.01 tolerance
+            else:
+                to_save = None
+                if z1 <= self.fire_location[2]:
+                    to_save = line
+                    to_save.start = (line.start[0], line.start[1], self.fire_location[2] + 0.01)
+                if z2 >= self.ceiling:
+                    to_save = line
+                    to_save.end = (line.end[0], line.end[1], self.ceiling - 0.01)
+                # check if line has non-zero length
+                if np.linalg.norm(np.array(to_save.start) - np.array(to_save.end)) > 0:
+                    structure['f'].append(to_save)
+
+    # checking if point consists in polygon (XY plane only)
+    @staticmethod
+    def ray_tracing_method(point: iter, poly: iter) -> bool:
+        n = len(poly)
+        inside = False
+        x = point[0]
+        y = point[1]
+
+        p1x = poly[0][0]
+        p1y = poly[0][1]
+        for i in range(n + 1):
+            p2x = poly[i % n][0]
+            p2y = poly[i % n][1]
+            if y > min(p1y, p2y):
+                if y <= max(p1y, p2y):
+                    if x <= max(p1x, p2x):
+                        xints = None
+                        if p1y != p2y:
+                            xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                        if p1x == p2x or x <= xints:
+                            inside = not inside
+            p1x, p1y = p2x, p2y
+
+        return inside
+
     # map fire location with structure to find the most heated profiles to be analysed
     def map(self, structure):
         # (*fire coords, *section coords, length of the fire-section vector, level of shell above the fire, profile,
         # *unit vector))
 
-        # select the most exposed section among the lines and return its config
-        def map_lines(element):
-            # no element exception
-            lins = structure['f']
-            if lins.__len__() == 0:
-                return [*self.fire_location, None, None, None, None, self.ceiling, None, None, None, None, None, None]
-
-            d = 1e10  # infinitely large number
-            closest = None
-
-            # return vectors for further calculations (line_start[0], line_end[1], fire[2], es[3], fs[4], fe[5], se[6])
-            # find references
-            def vectors(single_line):
-                l_start = np.array(single_line.start)
-                l_end = np.array(single_line.end)
-                fire = np.array(self.fire_location)
-
-                return l_start, l_end, fire, l_end - l_start, fire - l_start, fire - l_end, l_start - l_end
-
-            # iterate over lines to select the closest to the fire
-            for line in lins:
-                v = vectors(line)
-
-                # here begins orthogonal projection module
-                # calculate cosine between two vectors
-                def cos_vec(v1, v2):
-                    return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-
-                # check if point of fire source has an orthogonal projection on the line
-                if cos_vec(v[3], v[4]) >= 0 and cos_vec(v[6], v[5]) >= 0:
-                    # calculate distance from point to its orthogonal projection on line
-                    d_iter = np.linalg.norm(np.cross(v[3], v[4])) / np.linalg.norm(v[3])
-                else:  # choose the nearest edge if not
-                    d_iter = min([np.linalg.norm(v[2] - v[0]), (np.linalg.norm(v[2] - v[0]))])
-
-                # overwrite with analysed line if it is closer to the fire then the already chosen
-                if d_iter < d:
-                    d = d_iter
-                    closest = line
-            v = vectors(closest)  # generate vectors for selected line
-            section = v[0] + min([1, (np.dot(v[4], v[3]) / np.dot(v[3], v[3]))]) * v[3]
-
-            unit_v = v[3] / np.linalg.norm(v[3])  # unit vector of selected line
-
-            # set column's section to the biggest heat flux height (1.2m from the fire base)
-            if element == 'c':
-                # check if addition 1.2 m to the section Z is possible
-                if section[-1] + 1.2 < max([v[1][-1], v[0][-1]]):
-                    section += [0, 0, 1.2]
-                else:
-                    section[-1] = max([v[1][-1], v[0][-1]])
-            generated = [*self.fire_location, *section, d, self.ceiling, closest.layer.split('*')[0], *unit_v,
-                         self.hrrpua, self.alpha]
-
-            structure['f'].clear()  # clear temporary layout 'foo'
-
-            # fire coords(list), section coords(list), length of the fire-section vector(float),
-            # level of shell above the fire(float), profile(string), unit vector
-            return generated
-
-        # remove elements beneath the fire base or above shell level from the lines
-        # cut those between the values
-        def cut_lines():
-            for line in lines:
-                # start point cannot be higher than end point
-                if line.start[2] > line.end[2]:
-                    start_rev = line.end
-                    end_rev = line.start
-                    line.start = start_rev
-                    line.end = end_rev
-
-                z1 = line.start[2]
-                z2 = line.end[2]
-                # do not consider lines beneath the fire base or above the ceiling
-                if z2 <= self.fire_location[2] or z1 >= self.ceiling:
-                    continue
-                # accept lines in (fire base, ceiling) ranges
-                elif z1 > self.fire_location[2] and z2 < self.ceiling:
-                    structure['f'].append(line)
-                # cut lines to (fire base, ceiling) ranges with 0.01 tolerance
-                else:
-                    to_save = None
-                    if z1 <= self.fire_location[2]:
-                        to_save = line
-                        to_save.start = (line.start[0], line.start[1], self.fire_location[2] + 0.01)
-                    if z2 >= self.ceiling:
-                        to_save = line
-                        to_save.end = (line.end[0], line.end[1], self.ceiling - 0.01)
-                    # check if line has non-zero length
-                    if np.linalg.norm(np.array(to_save.start) - np.array(to_save.end)) > 0:
-                        structure['f'].append(to_save)
-
-        # checking if point consists in polygon (XY plane only)
-        def ray_tracing_method(point: iter, poly: iter) -> bool:
-            n = len(poly)
-            inside = False
-            x = point[0]
-            y = point[1]
-
-            p1x = poly[0][0]
-            p1y = poly[0][1]
-            for i in range(n + 1):
-                p2x = poly[i % n][0]
-                p2y = poly[i % n][1]
-                if y > min(p1y, p2y):
-                    if y <= max(p1y, p2y):
-                        if x <= max(p1x, p2x):
-                            xints = None
-                            if p1y != p2y:
-                                xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                            if p1x == p2x or x <= xints:
-                                inside = not inside
-                p1x, p1y = p2x, p2y
-
-            return inside
-
         # check for shell (plate, ceiling) existing above the fire assign the level if true
         for s in structure['s']:
             lvl = s.points[0][2]  # read level from first point of shell
-            if float(self.fire_location[2]) <= lvl < self.ceiling and ray_tracing_method(self.fire_location, s.points):
+            if float(self.fire_location[2]) <= lvl < self.ceiling and self.ray_tracing_method(self.fire_location, s.points):
                 self.ceiling = lvl
 
         for i, element_type in enumerate(['b', 'c']):
             lines = structure[element_type]  # choose beams or columns as lines
-            cut_lines()  # cut beams accordingly to Z in (fire_z - shell_lvl) range and map to relative
+            self.cut_lines(lines, structure)  # cut beams accordingly to Z in (fire_z - shell_lvl) range and map to relative
 
-            self.mapped.append(map_lines(element_type))
+            self.mapped.append(self.map_lines(element_type, structure))
 
             self.profiles.append(self.mapped[i][3])
 
@@ -271,7 +274,7 @@ class Iteration:
         self.prepare_locafi()
 
         # create SAFIR files
-        self.copy_section(self.data[-6])
+        self. copy_section(self.data[-6])
         self.write_dummy_structural(self.data[3:6], np.array(self.data[-3:]).astype(float))
 
 
