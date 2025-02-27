@@ -7,3 +7,4 @@ RSET = 500
 max_iterations = 4
 stop_condition = none
 time_end = 1800
+safir_path = D:/safir2022b1.exe

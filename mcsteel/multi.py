@@ -72,9 +72,9 @@ def get_temp_table(sim_path, amb_temp=20, ng_beam=2):
 
 class Single:
     def __init__(self, scenario_data: Series, config: Config):
-        self.fire_id = int(scenario_data.fire_id)
+        self.cfast_fire_id = int(scenario_data.cfast_fire_id)
         self.calc_no = int(scenario_data.calc_no)
-        self.chid = f'{self.fire_id}_{self.calc_no}'
+        self.chid = f'{self.cfast_fire_id}_{self.calc_no}'
         self.dir_path = join(config.results_path, self.chid)
         self.safir = config.safir_path
         self.data = scenario_data

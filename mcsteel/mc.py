@@ -31,13 +31,15 @@ class FireScenario:
         self.mapped = []  # complete set of data for profiles to be calculated in this scenario
         self.ceiling = 1e5  # level of ceiling above the fire source (here the space begins!)
         self.locafi_lines = []  # lines for locafi.txt fire file
+        self.no_valid_elements = False    # if no valid elements are available for this fire (not expected for well set projects)
 
     # select the most exposed section among the lines and return its config
-    # [WK] DEBUG continue with this function!
     def map_lines(self, element, structure):
         # no element exception
-        lins = structure['f']
+        lins = structure['temp']
         if lins.__len__() == 0:
+            print('[WARNING] No valid elements for the scenario!')
+            self.no_valid_elements = True
             return [*self.fire_location, None, None, None, None, self.ceiling, None, None, None, None, None, None]
 
         d = 1e10  # infinitely large number
@@ -87,17 +89,16 @@ class FireScenario:
         generated = [*self.fire_location, *section, d, self.ceiling, closest.layer.split('*')[0], *unit_v,
                      self.hrrpua, self.alpha]
 
-        structure['f'].clear()  # clear temporary layout 'foo'
+        structure['temp'].clear()  # clear temporary layout 'foo'
 
         # fire coords(list), section coords(list), length of the fire-section vector(float),
-        # level of shell above the fire(float), profile(string), unit vector
+        # level of shell above the fire(float), profile(string), unit vector, HRRPUA, alpha(?)
         return generated
 
     # remove elements beneath the fire base or above shell level from the lines
     # cut those between the values
     def cut_lines(self, lines, structure):
         for line in lines:
-            print(line)
             # start point cannot be higher than end point
             if line.start[2] > line.end[2]:
                 start_rev = line.end
@@ -112,7 +113,7 @@ class FireScenario:
                 continue
             # accept lines in (fire base, ceiling) ranges
             elif z1 > self.fire_location[2] and z2 < self.ceiling:
-                structure['f'].append(line)
+                structure['temp'].append(line)
             # cut lines to (fire base, ceiling) ranges with 0.01 tolerance
             else:
                 to_save = None
@@ -124,7 +125,7 @@ class FireScenario:
                     to_save.end = (line.end[0], line.end[1], self.ceiling - 0.01)
                 # check if line has non-zero length
                 if np.linalg.norm(np.array(to_save.start) - np.array(to_save.end)) > 0:
-                    structure['f'].append(to_save)
+                    structure['temp'].append(to_save)
 
     # checking if point consists in polygon (XY plane only)
     @staticmethod
@@ -168,7 +169,7 @@ class FireScenario:
 
             self.mapped.append(self.map_lines(element_type, structure))
 
-            self.profiles.append(self.mapped[i][3])
+            self.profiles.append(self.mapped[i][8])
 
     # calculate HRR(t) and D(t) tables
     def create_fire_curve(self):
@@ -274,8 +275,8 @@ class Iteration:
         self.prepare_locafi()
 
         # create SAFIR files
-        self. copy_section(self.data[-6])
-        self.write_dummy_structural(self.data[3:6], np.array(self.data[-3:]).astype(float))
+        self.copy_section(self.data[-6])
+        self.write_dummy_structural(self.data[3:6], np.array(self.data[-5:-2]).astype(float))
 
 
 class MCGenerator:
@@ -377,7 +378,9 @@ class MCGenerator:
                     out(outpth, f'[WARNING] Not enough CFAST files. {self.n} fire scenarios were requested in .USER file.'
                                 f' Proceeding with {i} scenarios')
             else:
-                self.set.append(FireScenario(self.config, *self._find_fire()))
+                fire_scenario = FireScenario(self.config, *self._find_fire())
+                if fire_scenario.data[-6]:
+                    self.set.append(fire_scenario)
         out(outpth, f'[OK] {self.n} fire scenarios were chosen ({round(sec() - t, 3)}) s                  ')
         return self.set
 
@@ -471,6 +474,9 @@ class CFASTScenario(FireScenario):
 
         self.fire_curve = [i.values.tolist() for i in (df[['Time', 'HRR_1']], df[['Time', 'diam']])]
 
+        # update time end in config for this iteration
+        self.config.time_end = round(df['Time'].max())
+
 
 class Multisimulation:
     def __init__(self, config_object: Config):
@@ -506,7 +512,7 @@ class Multisimulation:
         # assign 3DFACE elements to shells table
         shells = [ent for ent in dxffile.entities if ent.dxftype == '3DFACE']
 
-        return {'b': beams, 'c': columns, 's': shells, 'f': []}
+        return {'b': beams, 'c': columns, 's': shells, 'temp': []}
 
     # append DataFrame to CSV file
     def _writedf2csv(self, iteration_no: int):
@@ -545,6 +551,9 @@ class Multisimulation:
             s_no += prev_s_no_max + 1
             scenario.create_fire_curve()
             scenario.map(self.structure)
+            if scenario.no_valid_elements:
+                print(f'[WARNING] Excluding scenario {s_no} from the analysis')
+                continue
             for i_no, data in enumerate(scenario.mapped):
                 i = Iteration(scenario, data, f'{s_no}_{i_no}')
                 i.prepare_files()

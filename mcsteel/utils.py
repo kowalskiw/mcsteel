@@ -228,8 +228,7 @@ def read_mech_input(path_to_frame):
     return tems, tshs, t_end
 
 
-# return the input file path regarding to GiD catalogues or files with no further directory tree
-# (make this comment better, please)
+# return paths of input or source files for SAFIR
 def find_paths(config_path, chid, shell=False):
     in_paths = [join(config_path, f'{chid}.{i}') for i in ['in', 'IN', 'In', 'iN']]
     tor_paths = [join(config_path, f'{chid}{i}') for i in ['-t.TOR', '-t.T0R', '.TOR', '.T0R']]
