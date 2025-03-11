@@ -1,3 +1,4 @@
+raise Exception('rewrite this script to GEO format')
 from numpy import random, pi
 from pandas import read_csv, merge, DataFrame, Series
 from math import exp

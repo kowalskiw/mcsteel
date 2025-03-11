@@ -1,194 +1,164 @@
-import time
 from time import time as sec
 from time import ctime
 import numpy as np
-import dxfgrabber as dxf
 from pandas import DataFrame as df
 from pandas import read_csv as rcsv
 import core
 from os import makedirs, chdir, getcwd
 from shutil import copyfile
 import sys
+
 from fdsafir import Thermal, user_config, progressBar, out
 import fires
+import geom
 
 global outpth
 
-'''Read geometry and map it to the fire (choose the most exposed sections)'''
 
-
-class Single:
-    def __init__(self, title):
-        self.title = title  # simulation title
-        self.prof_type = 'invalid profile type'  # type of steel profile
-        self.geometry = self.read_dxf()  # import geometry from DXF file
-
-    # read dxf geometry
-    def read_dxf(self):
-        t1 = sec()
-
-        print(out(outpth, 'Reading DXF geometry...'), end='\r')
-        dxffile = dxf.readfile('{}.dxf'.format(self.title))
-        print(out(outpth, '[OK] DXF geometry imported ({} s)'.format(round(sec() - t1, 2))))
-
-        beams = []
-        columns = []
-        x = 0
-        t = len(dxffile.entities)
-        # assign LINES elements to columns or beams tables
-        start = sec()
-        for ent in dxffile.entities:
-            progressBar('Converting lines', x, t)
-            if ent.dxftype == 'LINE':
-                if ent.start[2] == ent.end[2]:
-                    beams.append(ent)
-                else:
-                    columns.append(ent)
-            x += 1
-        print(out(outpth, '[OK] Lines converted                  ({} s)'.format(round(sec()-start, 2))))
-
-        # assign 3DFACE elements to shells table
-        shells = [ent for ent in dxffile.entities if ent.dxftype == '3DFACE']
-
-        return {'b': beams, 'c': columns, 's': shells, 'f': []}
-
-    # map fire and geometry - choose fire scenario
-    def generate(self, f_coords, element):
-
-        # select the most exposed section among the lines and return its config
-        def map_lines():
-            # no element exception
-            lines = self.geometry['f']
-            if lines.__len__() == 0:
-                return (*f_coords, None, None, None, None, shell_lvl, None, None, None, None)
-
-            d = 1e10  # infinitely large number
-            closest = None
-
-            # return vectors for further calculations (line_start[0], line_end[1], fire[2], es[3], fs[4], fe[5], se[6])
-            # find references
-            def vectors(line):
-                l_start = np.array(line.start)
-                l_end = np.array(line.end)
-                fire = np.array(f_coords)
-
-                return l_start, l_end, fire, l_end - l_start, fire - l_start, fire - l_end, l_start - l_end
-
-            # iterate over lines to select the closest to the fire
-            for l in lines:
-                v = vectors(l)
-
-                # orthogonal projection module
-                def cos_vec(v1, v2):
-                    return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-
-                if cos_vec(v[3], v[4]) >= 0 and cos_vec(v[6], v[5]) >= 0:  # choose projected point
-                    d_iter = np.linalg.norm(np.cross(v[3], v[4])) / np.linalg.norm(v[3])
-                else:  # choose the nearest edge if not
-                    d_iter = min([np.linalg.norm(v[2] - v[0]), (np.linalg.norm(v[2] - v[0]))])
-
-                # overwrite with analysed line if it is closer to the fire then the already chosen
-                if d_iter < d:
-                    d = d_iter
-                    closest = l
-            v = vectors(closest)  # generate vectors for selected line
-            section = v[0] + (np.dot(v[4], v[3]) / np.dot(v[3], v[3])) * v[3]  # find the most exposed section coords
-
-            unit_v = v[3] / np.linalg.norm(v[3])  # unit vector of selected line
-
-            # set column's section to the biggest heat flux height (1.2m from the fire base)
-            if element == 'c':
-                # check if addition 1.2 m to the section Z is possible
-                if section[-1] + 1.2 < max([v[1][-1], v[0][-1]]):
-                    section += [0, 0, 1.2]
-                else:
-                    section[-1] = max([v[1][-1], v[0][-1]])
-            generated = (*f_coords, *section, d, shell_lvl, closest.layer.split('*')[0], *unit_v)
-
-            self.geometry['f'].clear()  # clear temporary layout 'foo'
-
-            # fire coords(list), section coords(list), length of the fire-section vector(float),
-            # level of shell above the fire(float), profile(string), unit vector
-            return generated
-
-        # remove elements beneath the fire base or above shell level from the lines
-        # cut those between the values
-        def cut_lines(lines: list):
-            for l in lines:
-                # start point cannot be higher than end point
-                if l.start[2] > l.end[2]:
-                    start_rev = l.end
-                    end_rev = l.start
-                    l.start = start_rev
-                    l.end = end_rev
-
-                z1 = l.start[2]
-                z2 = l.end[2]
-                # do not consider lines beneath the fire base or above the ceiling
-                if z2 <= f_coords[2] or z1 >= shell_lvl:
-                    continue
-                # accept lines in (fire base, ceiling) ranges
-                elif z1 > f_coords[2] and z2 < shell_lvl:
-                    self.geometry['f'].append(l)
-                # cut lines to (fire base, ceiling) ranges with 0.01 tolerance
-                else:
-                    to_save = None
-                    if z1 <= f_coords[2]:
-                        to_save = l
-                        to_save.start = (l.start[0], l.start[1], f_coords[2] + 0.01)
-                    if z2 >= shell_lvl:
-                        to_save = l
-                        to_save.end = (l.end[0], l.end[1], shell_lvl - 0.01)
-                    # check if line has non-zero length
-                    if np.linalg.norm(np.array(to_save.start) - np.array(to_save.end)) > 0:
-                        self.geometry['f'].append(to_save)
-
-        # checking if point consists in polygon (XY plane only)
-        def ray_tracing_method(point: iter, poly: iter) -> bool:
-            n = len(poly)
-            inside = False
-            x = point[0]
-            y = point[1]
-
-            p1x = poly[0][0]
-            p1y = poly[0][1]
-            for i in range(n + 1):
-                p2x = poly[i % n][0]
-                p2y = poly[i % n][1]
-                if y > min(p1y, p2y):
-                    if y <= max(p1y, p2y):
-                        if x <= max(p1x, p2x):
-                            if p1y != p2y:
-                                xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                            if p1x == p2x or x <= xints:
-                                inside = not inside
-                p1x, p1y = p2x, p2y
-
-            return inside
-
-        shell_lvl = 1e5  # atmosphere bounds (here the space begins!)
-
-        # check for shell (plate, ceiling) existing above the fire assign the level if true
-        for s in self.geometry['s']:
-            lvl = s.points[0][2]  # read level from first point of shell
-            if float(f_coords[2]) <= lvl < shell_lvl and ray_tracing_method(f_coords, s.points):
-                shell_lvl = lvl
-
-        # initialize mapping
-        if element == 'b':  # cut beams accordingly to Z in (fire_z - shell_lvl) range and map to relative
-            cut_lines(self.geometry['b'])
-        elif element == 'c':  # cut columns accordingly to Z in (fire_z - shell_lvl) range and map to relative
-            cut_lines(self.geometry['c'])
-        else:
-            raise ValueError('[ERROR] {} is not a valid element type (\'b\' or \'c\' required)'.format(element))
-
-        mapped = list(map_lines())
-
-        self.prof_type = mapped[3]
-
-        # (*fire coords, *section coords, length of the fire-section vector, level of shell above the fire, profile,
-        # unit vector))
-        return mapped
+# '''Read geometry and map it to the fire (choose the most exposed sections)'''
+# class Single:
+#     def __init__(self, title):
+#         self.title = title  # simulation title
+#         self.prof_type = 'invalid profile type'  # type of steel profile
+#         self.geometry = geom.read_geo_geom(f'{self.title}.geo')
+#
+#     # # map fire and geometry - choose fire scenario
+#     def generate(self, f_coords, element):
+#     #
+    #     # select the most exposed section among the lines and return its config
+    #     def map_lines():
+    #         # no element exception
+    #         lines = self.geometry['f']
+    #         if lines.__len__() == 0:
+    #             return (*f_coords, None, None, None, None, shell_lvl, None, None, None, None)
+    #
+    #         d = 1e10  # infinitely large number
+    #         closest = None
+    #
+    #         # return vectors for further calculations (line_start[0], line_end[1], fire[2], es[3], fs[4], fe[5], se[6])
+    #         # find references
+    #         def vectors(line):
+    #             l_start = np.array(line.start)
+    #             l_end = np.array(line.end)
+    #             fire = np.array(f_coords)
+    #
+    #             return l_start, l_end, fire, l_end - l_start, fire - l_start, fire - l_end, l_start - l_end
+    #
+    #         # iterate over lines to select the closest to the fire
+    #         for l in lines:
+    #             v = vectors(l)
+    #
+    #             # orthogonal projection module
+    #             def cos_vec(v1, v2):
+    #                 return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+    #
+    #             if cos_vec(v[3], v[4]) >= 0 and cos_vec(v[6], v[5]) >= 0:  # choose projected point
+    #                 d_iter = np.linalg.norm(np.cross(v[3], v[4])) / np.linalg.norm(v[3])
+    #             else:  # choose the nearest edge if not
+    #                 d_iter = min([np.linalg.norm(v[2] - v[0]), (np.linalg.norm(v[2] - v[0]))])
+    #
+    #             # overwrite with analysed line if it is closer to the fire then the already chosen
+    #             if d_iter < d:
+    #                 d = d_iter
+    #                 closest = l
+    #         v = vectors(closest)  # generate vectors for selected line
+    #         section = v[0] + (np.dot(v[4], v[3]) / np.dot(v[3], v[3])) * v[3]  # find the most exposed section coords
+    #
+    #         unit_v = v[3] / np.linalg.norm(v[3])  # unit vector of selected line
+    #
+    #         # set column's section to the biggest heat flux height (1.2m from the fire base)
+    #         if element == 'c':
+    #             # check if addition 1.2 m to the section Z is possible
+    #             if section[-1] + 1.2 < max([v[1][-1], v[0][-1]]):
+    #                 section += [0, 0, 1.2]
+    #             else:
+    #                 section[-1] = max([v[1][-1], v[0][-1]])
+    #         generated = (*f_coords, *section, d, shell_lvl, closest.layer.split('*')[0], *unit_v)
+    #
+    #         self.geometry['f'].clear()  # clear temporary layout 'foo'
+    #
+    #         # fire coords(list), section coords(list), length of the fire-section vector(float),
+    #         # level of shell above the fire(float), profile(string), unit vector
+    #         return generated
+    #
+    #     # remove elements beneath the fire base or above shell level from the lines
+    #     # cut those between the values
+    #     def cut_lines(lines: list):
+    #         for l in lines:
+    #             # start point cannot be higher than end point
+    #             if l.start[2] > l.end[2]:
+    #                 start_rev = l.end
+    #                 end_rev = l.start
+    #                 l.start = start_rev
+    #                 l.end = end_rev
+    #
+    #             z1 = l.start[2]
+    #             z2 = l.end[2]
+    #             # do not consider lines beneath the fire base or above the ceiling
+    #             if z2 <= f_coords[2] or z1 >= shell_lvl:
+    #                 continue
+    #             # accept lines in (fire base, ceiling) ranges
+    #             elif z1 > f_coords[2] and z2 < shell_lvl:
+    #                 self.geometry['f'].append(l)
+    #             # cut lines to (fire base, ceiling) ranges with 0.01 tolerance
+    #             else:
+    #                 to_save = None
+    #                 if z1 <= f_coords[2]:
+    #                     to_save = l
+    #                     to_save.start = (l.start[0], l.start[1], f_coords[2] + 0.01)
+    #                 if z2 >= shell_lvl:
+    #                     to_save = l
+    #                     to_save.end = (l.end[0], l.end[1], shell_lvl - 0.01)
+    #                 # check if line has non-zero length
+    #                 if np.linalg.norm(np.array(to_save.start) - np.array(to_save.end)) > 0:
+    #                     self.geometry['f'].append(to_save)
+    #
+    #     # checking if point consists in polygon (XY plane only)
+    #     def ray_tracing_method(point: iter, poly: iter) -> bool:
+    #         n = len(poly)
+    #         inside = False
+    #         x = point[0]
+    #         y = point[1]
+    #
+    #         p1x = poly[0][0]
+    #         p1y = poly[0][1]
+    #         for i in range(n + 1):
+    #             p2x = poly[i % n][0]
+    #             p2y = poly[i % n][1]
+    #             if y > min(p1y, p2y):
+    #                 if y <= max(p1y, p2y):
+    #                     if x <= max(p1x, p2x):
+    #                         if p1y != p2y:
+    #                             xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+    #                         if p1x == p2x or x <= xints:
+    #                             inside = not inside
+    #             p1x, p1y = p2x, p2y
+    #
+    #         return inside
+    #
+    #     shell_lvl = 1e5  # atmosphere bounds (here the space begins!)
+    #
+    #     # check for shell (plate, ceiling) existing above the fire assign the level if true
+    #     for s in self.geometry['s']:
+    #         lvl = s.points[0][2]  # read level from first point of shell
+    #         if float(f_coords[2]) <= lvl < shell_lvl and ray_tracing_method(f_coords, s.points):
+    #             shell_lvl = lvl
+    #
+    #     # initialize mapping
+    #     if element == 'b':  # cut beams accordingly to Z in (fire_z - shell_lvl) range and map to relative
+    #         cut_lines(self.geometry['b'])
+    #     elif element == 'c':  # cut columns accordingly to Z in (fire_z - shell_lvl) range and map to relative
+    #         cut_lines(self.geometry['c'])
+    #     else:
+    #         raise ValueError('[ERROR] {} is not a valid element type (\'b\' or \'c\' required)'.format(element))
+    #
+    #     mapped = list(map_lines())
+    #
+    #     self.prof_type = mapped[3]
+    #
+    #     # (*fire coords, *section coords, length of the fire-section vector, level of shell above the fire, profile,
+    #     # unit vector))
+    #     return mapped
 
 
 class Generator:
@@ -355,30 +325,33 @@ def generate_set(n, title, t_end, fire_type, config_path, results_path, fuelconf
 
     print(out(outpth, '[OK] User configuration imported             ({} s)'.format(round(sec()-start, 2))))
 
-    sing = Single(title)
+    # sing = Single(title)
+    structure = geom.read_geo_geom(title)
+
     gen = Generator(t_end, title, fire_type, fuelconfig)
 
     t = sec()
     # draw MC input samples
-    for i in range(0, int(n) * 2, 2):
-        progressBar('Preparing fire scenarios', i, n * 2)
-        fire = list(gen.fire())  # draw fire
+    for i in range(0, int(n) * len(structure.sections), len(structure.sections)):
+        progressBar('Preparing fire scenarios', i, n * len(structure.sections))
+        fire = list(gen.fire())  # draw fire (one fire for multiple structural elements types)
 
-        # draw localization of the most exposed beam
-        csvset.loc[i] = [simid_core + i, 'b', ctime(sec())] + sing.generate(gen.fire_coords, 'b') + fire[2:]
-        locafi(csvset.loc[i], fire[:2])  # generate locafi.txt
+#[WK] how to find structural - fire scenarios???
 
-        # draw localization of the most exposed column
-        csvset.loc[i + 1] = [simid_core + i + 1, 'c', ctime(sec())] + sing.generate(gen.fire_coords, 'c') + fire[2:]
-        locafi(csvset.loc[i + 1], fire[:2])  # generate locafi.txt
+        # draw localization of the most exposed element for all section types - is it a valid assumption?
+        for section_type, section_coords in structure.find_closest_section(gen.fire_coords):
+            if not all(section_coords):
+                continue
+            csvset.loc[i] = [simid_core + i, section_type, ctime(sec())] +  section_coords[0] + [section_coords[1]] + fire[2:]
+            locafi(csvset.loc[i], fire[:2])  # generate locafi.txt
 
-        # write rows every 8 records (4 fire scenarios)
+        # write rows every 8 records (4 structure-fire scenarios)
         if (i + 2) % 8 == 0:
             df2csv(csvset)
             del csvset
             csvset = create_df()
 
-    # write unwritten rows
+    # write yet unwritten rows
     try:
         df2csv(csvset)
         del csvset
