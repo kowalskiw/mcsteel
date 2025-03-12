@@ -1,23 +1,22 @@
 import os.path
+import numpy as np
+import pandas as pd
+import sys
 from os import makedirs, scandir
 from time import time as sec
 from time import ctime
-import numpy as np
-import dxfgrabber as dxf
-from pandas import DataFrame as df
-from pandas import read_csv
 from shutil import copy2
-import sys
-from numpy import random
 from statistics import fmean
 
 from mcsteel.utils import ThermalTEM, Config, progress_bar, out, triangular
 import mcsteel.core
 import mcsteel.fires
+import mcsteel.geom
 
 global outpth
 
 
+'''Fire scenario class - it basically stores scenario data and generates HRR(t) and D(t) curves'''
 class FireScenario:
     def __init__(self, config_object: Config, fire_properties, sprinkler_activation):
         self.config = config_object  # config class
@@ -25,151 +24,98 @@ class FireScenario:
         self.alpha = fire_properties[0]  # [W/s^2]
         self.hrrpua = fire_properties[1]  # [W/m^2]
         self.sprinklers = sprinkler_activation  # [s]
-        self.profiles = []  # [profile1, profile2, profile3] profile1 = fdsafir2.ThermalTEM
         self.fire_curve = [[], []]  # [[0,... time steps ... t_end], [HRR(0), ... HRR ... HRR(t_end)]]
         self.fire_type = config_object.fire_type  # fire curve function type form fires.Fires
         self.mapped = []  # complete set of data for profiles to be calculated in this scenario
-        self.ceiling = 1e5  # level of ceiling above the fire source (here the space begins!)
+
         self.locafi_lines = []  # lines for locafi.txt fire file
         self.no_valid_elements = False    # if no valid elements are available for this fire (not expected for well set projects)
 
-    # select the most exposed section among the lines and return its config
-    def map_lines(self, element, structure):
-        # no element exception
-        lins = structure['temp']
-        if lins.__len__() == 0:
-            print('[WARNING] No valid elements for the scenario!')
-            self.no_valid_elements = True
-            return [*self.fire_location, None, None, None, None, self.ceiling, None, None, None, None, None, None]
+        self.ceiling = 1e5  # level of ceiling above the fire source (here the space begins!)
+        self.profiles = []  # [profile1, profile2, profile3] profile1 = fdsafir2.ThermalTEM
 
-        d = 1e10  # infinitely large number
-        closest = None
-
-        # return vectors for further calculations (line_start[0], line_end[1], fire[2], es[3], fs[4], fe[5], se[6])
-        # find references
-        def vectors(single_line):
-            l_start = np.array(single_line.start)
-            l_end = np.array(single_line.end)
-            fire = np.array(self.fire_location)
-
-            return l_start, l_end, fire, l_end - l_start, fire - l_start, fire - l_end, l_start - l_end
-
-        # iterate over lines to select the closest to the fire
-        for line in lins:
-            v = vectors(line)
-
-            # here begins orthogonal projection module
-            # calculate cosine between two vectors
-            def cos_vec(v1, v2):
-                return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-
-            # check if point of fire source has an orthogonal projection on the line
-            if cos_vec(v[3], v[4]) >= 0 and cos_vec(v[6], v[5]) >= 0:
-                # calculate distance from point to its orthogonal projection on line
-                d_iter = np.linalg.norm(np.cross(v[3], v[4])) / np.linalg.norm(v[3])
-            else:  # choose the nearest edge if not
-                d_iter = min([np.linalg.norm(v[2] - v[0]), (np.linalg.norm(v[2] - v[0]))])
-
-            # overwrite with analysed line if it is closer to the fire then the already chosen
-            if d_iter < d:
-                d = d_iter
-                closest = line
-        v = vectors(closest)  # generate vectors for selected line
-        section = v[0] + min([1, (np.dot(v[4], v[3]) / np.dot(v[3], v[3]))]) * v[3]
-
-        unit_v = v[3] / np.linalg.norm(v[3])  # unit vector of selected line
-
-        # set column's section to the biggest heat flux height (1.2m from the fire base)
-        if element == 'c':
-            # check if addition 1.2 m to the section Z is possible
-            if section[-1] + 1.2 < max([v[1][-1], v[0][-1]]):
-                section += [0, 0, 1.2]
-            else:
-                section[-1] = max([v[1][-1], v[0][-1]])
-        generated = [*self.fire_location, *section, d, self.ceiling, closest.layer.split('*')[0], *unit_v,
-                     self.hrrpua, self.alpha]
-
-        structure['temp'].clear()  # clear temporary layout 'foo'
-
-        # fire coords(list), section coords(list), length of the fire-section vector(float),
-        # level of shell above the fire(float), profile(string), unit vector, HRRPUA, alpha(?)
-        return generated
-
-    # remove elements beneath the fire base or above shell level from the lines
     # cut those between the values
-    def cut_lines(self, lines, structure):
-        for line in lines:
-            # start point cannot be higher than end point
-            if line.start[2] > line.end[2]:
-                start_rev = line.end
-                end_rev = line.start
-                line.start = start_rev
-                line.end = end_rev
+    # def cut_lines(self, lines, structure):
+    #     for line in lines:
+    #         # start point cannot be higher than end point
+    #         if line.start[2] > line.end[2]:
+    #             start_rev = line.end
+    #             end_rev = line.start
+    #             line.start = start_rev
+    #             line.end = end_rev
+    #
+    #         z1 = line.start[2]
+    #         z2 = line.end[2]
+    #         # do not consider lines beneath the fire base or above the ceiling
+    #         if z2 <= self.fire_location[2] or z1 >= self.ceiling:
+    #             continue
+    #         # accept lines in (fire base, ceiling) ranges
+    #         elif z1 > self.fire_location[2] and z2 < self.ceiling:
+    #             structure['temp'].append(line)
+    #         # cut lines to (fire base, ceiling) ranges with 0.01 tolerance
+    #         else:
+    #             to_save = None
+    #             if z1 <= self.fire_location[2]:
+    #                 to_save = line
+    #                 to_save.start = (line.start[0], line.start[1], self.fire_location[2] + 0.01)
+    #             if z2 >= self.ceiling:
+    #                 to_save = line
+    #                 to_save.end = (line.end[0], line.end[1], self.ceiling - 0.01)
+    #             # check if line has non-zero length
+    #             if np.linalg.norm(np.array(to_save.start) - np.array(to_save.end)) > 0:
+    #                 structure['temp'].append(to_save)
+    #
+    # # checking if point consists in polygon (XY plane only)
+    # @staticmethod
+    # def ray_tracing_method(point: iter, poly: iter) -> bool:
+    #     n = len(poly)
+    #     inside = False
+    #     x = point[0]
+    #     y = point[1]
+    #
+    #     p1x = poly[0][0]
+    #     p1y = poly[0][1]
+    #     for i in range(n + 1):
+    #         p2x = poly[i % n][0]
+    #         p2y = poly[i % n][1]
+    #         if y > min(p1y, p2y):
+    #             if y <= max(p1y, p2y):
+    #                 if x <= max(p1x, p2x):
+    #                     xints = None
+    #                     if p1y != p2y:
+    #                         xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+    #                     if p1x == p2x or x <= xints:
+    #                         inside = not inside
+    #         p1x, p1y = p2x, p2y
+    #
+    #     return inside
+    #
+    # # map fire location with structure to find the most heated profiles to be analysed
+    def map(self, structure: mcsteel.geom.Geometry):
+        self.mapped  = structure.find_closest_sections(self.fire_location).items()
+        if not len(self.mapped):
+            self.no_valid_elements = True
+        else:
+            self.ceiling = structure.get_above_shell_lvl(self.fire_location)
+            self.profiles = self.mapped.keys()
 
-            z1 = line.start[2]
-            z2 = line.end[2]
-            # do not consider lines beneath the fire base or above the ceiling
-            if z2 <= self.fire_location[2] or z1 >= self.ceiling:
-                continue
-            # accept lines in (fire base, ceiling) ranges
-            elif z1 > self.fire_location[2] and z2 < self.ceiling:
-                structure['temp'].append(line)
-            # cut lines to (fire base, ceiling) ranges with 0.01 tolerance
-            else:
-                to_save = None
-                if z1 <= self.fire_location[2]:
-                    to_save = line
-                    to_save.start = (line.start[0], line.start[1], self.fire_location[2] + 0.01)
-                if z2 >= self.ceiling:
-                    to_save = line
-                    to_save.end = (line.end[0], line.end[1], self.ceiling - 0.01)
-                # check if line has non-zero length
-                if np.linalg.norm(np.array(to_save.start) - np.array(to_save.end)) > 0:
-                    structure['temp'].append(to_save)
 
-    # checking if point consists in polygon (XY plane only)
-    @staticmethod
-    def ray_tracing_method(point: iter, poly: iter) -> bool:
-        n = len(poly)
-        inside = False
-        x = point[0]
-        y = point[1]
-
-        p1x = poly[0][0]
-        p1y = poly[0][1]
-        for i in range(n + 1):
-            p2x = poly[i % n][0]
-            p2y = poly[i % n][1]
-            if y > min(p1y, p2y):
-                if y <= max(p1y, p2y):
-                    if x <= max(p1x, p2x):
-                        xints = None
-                        if p1y != p2y:
-                            xints = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                        if p1x == p2x or x <= xints:
-                            inside = not inside
-            p1x, p1y = p2x, p2y
-
-        return inside
-
-    # map fire location with structure to find the most heated profiles to be analysed
-    def map(self, structure):
-        # (*fire coords, *section coords, length of the fire-section vector, level of shell above the fire, profile,
-        # *unit vector))
-
-        # check for shell (plate, ceiling) existing above the fire assign the level if true
-        for s in structure['s']:
-            lvl = s.points[0][2]  # read level from first point of shell
-            if float(self.fire_location[2]) <= lvl < self.ceiling and self.ray_tracing_method(self.fire_location, s.points):
-                self.ceiling = lvl
-
-        for i, element_type in enumerate(['b', 'c']):
-            lines = structure[element_type]  # choose beams or columns as lines
-            self.cut_lines(lines, structure)  # cut beams accordingly to Z in (fire_z - shell_lvl) range and map to relative
-
-            self.mapped.append(self.map_lines(element_type, structure))
-
-            self.profiles.append(self.mapped[i][8])
+    #     # (*fire coords, *section coords, length of the fire-section vector, level of shell above the fire, profile,
+    #     # *unit vector))
+    #
+    #     # check for shell (plate, ceiling) existing above the fire assign the level if true
+    #     for s in structure['s']:
+    #         lvl = s.points[0][2]  # read level from first point of shell
+    #         if float(self.fire_location[2]) <= lvl < self.ceiling and self.ray_tracing_method(self.fire_location, s.points):
+    #             self.ceiling = lvl
+    #
+    #     for i, element_type in enumerate(['b', 'c']):
+    #         lines = structure[element_type]  # choose beams or columns as lines
+    #         self.cut_lines(lines, structure)  # cut beams accordingly to Z in (fire_z - shell_lvl) range and map to relative
+    #
+    #         self.mapped.append(self.map_lines(element_type, structure))
+    #
+    #         self.profiles.append(self.mapped[i][8])
 
     # calculate HRR(t) and D(t) tables
     def create_fire_curve(self):
@@ -184,17 +130,19 @@ class FireScenario:
             raise KeyError(f'[ERROR] {self.fire_type} is not a proper fire type')
 
         self.fire_curve = f.burn()
+        return self.fire_curve
 
 
+'''Single iteration class - necessary to gather data from samplers and create simulation input files'''
 class Iteration:
-    def __init__(self, scenario: FireScenario, iteration_data: list, chid: str):
+    def __init__(self, fire_scenario: FireScenario, section_coordinates: list, chid: str):
         self.chid = chid
-        self.fire = scenario
-        self.config = scenario.config
+        self.section_name = '_'.join(chid.split('_')[1:])
+        self.fire = fire_scenario
+        self.config = fire_scenario.config
         self.dir_path = os.path.join(self.config.results_path, chid)
 
-        # [*self.fire_location, *section, d, self.ceiling, closest.layer.split('*')[0], *unit_v]
-        self.data = iteration_data
+        self.section_coords = section_coordinates
 
     # fill locafi.txt template from core.py
     def prepare_locafi(self):
@@ -219,17 +167,18 @@ class Iteration:
         with open(os.path.join(self.dir_path, 'locafi.txt'), 'w') as lcffile:
             lcffile.writelines(lcf)
 
-    def copy_section(self, section_chid):
-        copy2(self.config.section_path(section_chid), self.dir_path)
-        ThermalTEM(1, [section_chid, [], []], self.config.config_path, 'lcf',
+    def copy_section(self):
+        copy2(self.config.section_path(self.section_name), self.dir_path)
+        ThermalTEM(1, [self.section_name, [], []], self.config.config_path, 'lcf',
                    self.config.time_end, self.dir_path).change_in(os.path.basename(self.dir_path))
 
-    def write_dummy_structural(self, section: list, unit_v: np.array):
+    def write_dummy_structural(self, unit_v: np.array = np.array([0, 0, 1])):
         # calculate nodes position
-        np_section = np.array(section).astype(float)
+        np_section = np.array(self.section_coords).astype(float)
         node1 = np_section - (unit_v / 1000)
         node2 = np_section + (unit_v / 1000)
         center = np_section
+        # THIS PART SHOULD BE REDESIGNED - ASSUMING +Z UNIT VECTOR AND +X LAX
         # add perpendicular vector to section point
         if unit_v[0] != 0:
             lax = np_section + np.array([-unit_v[2] / unit_v[0], 0, 1])
@@ -238,6 +187,7 @@ class Iteration:
         elif unit_v[2] != 0:
             lax = np_section + np.array([1, 0, -unit_v[0] / unit_v[2]])
         else:
+            # unit vector cannot be [0, 0, 0]
             raise ValueError('[ERROR] Zero length unit vector')
 
         # save nodes to a dummy.IN file
@@ -261,46 +211,64 @@ class Iteration:
 
     # allows to prepare files in different location (i.e. node)
     def prepare_files(self):
+        # THIS CHECK SHOULD BE RECONSIDERED
         # check if there are any elements above the fire source
-        if self.data[-4] != self.data[-4]:
-            with open(os.path.join(self.dir_path, f'{self.chid}.err'), 'w') as err:
-                mess = f'[WARNING] There are no structural elements above the fire base in the' \
-                       f' {self.chid} fire scenario'
-                err.write(f'{mess}\nMax element temperature in this scenario is equal to the ambient temperature')
-            out(outpth, mess)
+        # if self.data[-4] != self.data[-4]:
+        #     with open(os.path.join(self.dir_path, f'{self.chid}.err'), 'w') as err:
+        #         mess = f'[WARNING] There are no structural elements above the fire base in the' \
+        #                f' {self.chid} fire scenario'
+        #         err.write(f'{mess}\nMax element temperature in this scenario is equal to the ambient temperature')
+        #     out(outpth, mess)
 
+        # create directories
         makedirs(self.dir_path)
 
         # save fire file to the directory
         self.prepare_locafi()
 
         # create SAFIR files
-        self.copy_section(self.data[-6])
-        self.write_dummy_structural(self.data[3:6], np.array(self.data[-5:-2]).astype(float))
+        self.copy_section()
+        self.write_dummy_structural()
 
 
+'''Monte Carlo sampler for fire scenarios'''
+# TO BE REDESIGNED ACCORDING TO THE NEW ARCHITECTURE
 class MCGenerator:
-    def __init__(self, config_object: Config):
+    def __init__(self, config_object: Config, geometry: mcsteel.geom.Geometry):
         self.config = config_object
         self.n = self.config.max_iterations if self.config.max_iterations else 100  # size of the sample
-        self.fuel = self._read_fuel() if self.config.fire_type.lower() != 'cfast' else None  # fuel distribution and properties
+        self.geom = geometry    # gmsh geometry data - fuel volumes
+        self.fuel_db = self._read_fuel() if self.config.fire_type.lower() != 'cfast' else None  # fuel properties
         self.set = []
 
     def _read_fuel(self):
-        out(outpth, 'Reading fuel configuration files...\r')
         t0 = sec()
+        out(outpth, 'Importing fuel properites...\r')
+        self.fuel_db = mcsteel.fires.FuelDB(self.config, autoopen=True)
+        out(outpth, f'[OK] Fuel properties imported ({round(sec() - t0, 2)} s)                      ')
+        return self.fuel_db
 
-        fuel_type = self.config.fuel.lower()
-        fuel_full_path = os.path.join(self.config.config_path, f'{self.config.title}.fuel')
-        if fuel_type == 'obj':
-            fuel = mcsteel.fires.FuelOBJ(fuel_full_path).read_fuel()
-        elif fuel_type == 'step':
-            fuel = mcsteel.fires.Fuel(fuel_full_path).read_fuel()
-        else:
-            fuel = mcsteel.fires.OldFuel(fuel_full_path).read_fuel()
+    # find fire localization and properties of fuel in that place
+    def _find_fire_origin(self):
+        def random_position(xes, yes, zes):
+            coordinates = []
+            [coordinates.append(np.random.randint(int(10 * i[0]), int(10 * i[1])) / 10) for i in [xes, yes, zes]]
+            return coordinates
 
-        out(outpth, f'[OK] Fuel configuration imported ({round(sec() - t0, 2)} s)                      ')
-        return fuel
+        corrected_volumes = []
+        for vol in self.geom.volumes:
+            corrected_volumes.append(abs(np.prod([vol.bbox[3+i]-vol.bbox[i] for i in range(3)])) * vol.fairshare)
+
+        total_cv = sum(corrected_volumes)
+        probs = []
+        for cv in corrected_volumes:
+            probs.append(cv/total_cv)
+
+        fire_volume = self.geom.volumes[np.random.choice(len(probs), p=probs)]
+
+        fire_position = [np.random.uniform(fire_volume.bbox[i], fire_volume.bbox[i+3]) for i in range(3)]
+
+        return self.fuel_db.get_fuel_properties(fire_volume.name), fire_position
 
     @staticmethod
     def _find_hrrpua(fire_z, properties):
@@ -314,39 +282,10 @@ class MCGenerator:
     # calculate ALPHA according to the experimental log-norm or user's triangular distribution
     def _find_alpha(self, hrrpua, properties):
         if 'store' in {self.config.occupancy, self.config.fire_type}:
-            return hrrpua * random.lognormal(-9.72, 0.97)  # [kW/s2]
+            return hrrpua * np.random.lognormal(-9.72, 0.97)  # [kW/s2]
         else:
             return triangular(properties.alpha_min, properties.alpha_max, mode=properties.alpha_mode)  # [kW/s2]
 
-    # find fire localization and properites of fuel in that place
-    def _find_fire_origin(self):
-        def random_position(xes, yes, zes):
-            coordinates = []
-            [coordinates.append(random.randint(int(10 * i[0]), int(10 * i[1])) / 10) for i in [xes, yes, zes]]
-            return coordinates
-
-        # find the fuel actual_site within the fuel sites
-        def find_site(fuel_sites):
-            ases = []  # list with partial factors A of each fuel area
-            probs = []  # list with probabilities of ignition in each fuel area
-
-            # calculate partial factor A (area * probability) of each fuel area
-            for i, r in fuel_sites.iterrows():
-                a = (r['XB'] - r['XA']) * (r['YB'] - r['YA']) * r['MC']
-                ases.append(a)
-
-            # calculate probability of ignition in each fuel area
-            for a in ases:
-                probs.append(a / sum(ases))
-
-            # return drawn fuel area
-            return random.choice(len(probs), p=probs)
-
-        site_no = find_site(self.fuel)  # generate fire coordinates from MC function
-
-        site = self.fuel.iloc[site_no]  # information about chosen fuel actual_site
-
-        return site, random_position((site.XA, site.XB), (site.YA, site.YB), zes=(site.ZA, site.ZB))
 
     # gather all fire properties
     def _find_fire(self):
@@ -377,14 +316,17 @@ class MCGenerator:
                 except IndexError:
                     out(outpth, f'[WARNING] Not enough CFAST files. {self.n} fire scenarios were requested in .USER file.'
                                 f' Proceeding with {i} scenarios')
+                except UnboundLocalError as e:
+                    out(outpth, f'[ERROR] Internal error')
+                    raise Exception(e)
+
             else:
-                fire_scenario = FireScenario(self.config, *self._find_fire())
-                if fire_scenario.data[-6]:
-                    self.set.append(fire_scenario)
-        out(outpth, f'[OK] {self.n} fire scenarios were chosen ({round(sec() - t, 3)}) s                  ')
+                self.set.append(FireScenario(self.config, *self._find_fire()))
+        out(outpth, f'[OK] {self.n} fire scenarios have been sampled ({round(sec() - t, 3)}) s                  ')
         return self.set
 
 
+'''Fire scenario class with data obtained from CFAST output'''
 class CFASTScenario(FireScenario):
     def __init__(self, config_object: Config, path_to_cfast_dir, chid='cfast'):
         self.cfast_dir = path_to_cfast_dir
@@ -466,7 +408,7 @@ class CFASTScenario(FireScenario):
         # chid_compartments.csv
         # translate cfast fire curve to mcsteel
         # [hrr_tab, diameter_tab]
-        df = read_csv(os.path.join(self.cfast_dir, f'{self.cfast_chid}_compartments.csv'))
+        df = pd.read_csv(os.path.join(self.cfast_dir, f'{self.cfast_chid}_compartments.csv'))
         df = df.iloc[3:][['Time', 'HRR_1']].astype(float)
 
         def hrr2diam(hrr): return round(2 * np.sqrt(hrr / self.hrrpua / 1e3 / np.pi), 2)
@@ -478,41 +420,25 @@ class CFASTScenario(FireScenario):
         self.config.time_end = round(df['Time'].max())
 
 
+'''Top-tier class to manipulate all multisimulation'''
 class Multisimulation:
     def __init__(self, config_object: Config):
         self.config = config_object
-        self.structure = self._read_dxf()
-        self.data_frame = df(columns=['cfast_fire_id', 'calc_no', 'time', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s', 'z_s',
-                                      'distance', 'ceiling_lvl', 'profile', 'u_x', 'u_y', 'u_z', 'HRRPUA', 'alpha'])
+        self.structure = self._read_geom()
+        self.iterations_per_scenario = len(self.structure.sections)
+        self.data_frame = pd.DataFrame(columns=['cfast_fire_id', 'calc_no', 'time', 'x_f', 'y_f', 'z_f', 'x_s', 'y_s',
+                                                'z_s', 'distance', 'ceiling_lvl', 'profile', 'u_x', 'u_y', 'u_z',
+                                                'HRRPUA', 'alpha'])
 
-    # read dxf geometry
-    def _read_dxf(self):
+    # read GEO file with structure lines, floors surfaces and fuel volumes
+    def _read_geom(self):
         t1 = sec()
-
-        out(outpth, 'Reading DXF geometry...\r')
-        dxffile = dxf.readfile(os.path.join(self.config.config_path, f'{self.config.title}.dxf'))
+        out(outpth, 'Reading GEO geometry file...\r')
+        geofile = os.path.join(self.config.config_path, f'{self.config.title}.geo')
+        geometry_instance = mcsteel.geom.read_geo_geom(geofile)
         out(outpth, f'[OK] DXF geometry imported ({round(sec() - t1, 2)} s)')
 
-        beams = []
-        columns = []
-        x = 0
-        t = len(dxffile.entities)
-        # assign LINES elements to columns or beams tables
-        start = sec()
-        for ent in dxffile.entities:
-            progress_bar('Converting lines', x, t)
-            if ent.dxftype == 'LINE':
-                if ent.start[2] == ent.end[2]:
-                    beams.append(ent)
-                else:
-                    columns.append(ent)
-            x += 1
-        out(outpth, f'[OK] Lines converted ({round(sec() - start, 2)} s)                       ')
-
-        # assign 3DFACE elements to shells table
-        shells = [ent for ent in dxffile.entities if ent.dxftype == '3DFACE']
-
-        return {'b': beams, 'c': columns, 's': shells, 'temp': []}
+        return geometry_instance
 
     # append DataFrame to CSV file
     def _writedf2csv(self, iteration_no: int):
@@ -527,11 +453,12 @@ class Multisimulation:
 
         to_be_written.to_csv(path_or_buf=path, mode='a', header=header)
 
-    def prepare(self):
+    # some iterations may be already done
+    def _find_the_previous_sim_id(self):
         prev_s_no_max = 0
         if os.path.exists(self.config.results_path):
             for d in os.listdir(self.config.results_path):
-                try: 
+                try:
                     temp_s_no = int(d.split('_')[0])
                 except:
                     continue
@@ -540,31 +467,42 @@ class Multisimulation:
         else:
             os.makedirs(self.config.results_path)
 
-        gen = MCGenerator(self.config)  # current set
-        gen.sampling()
+        return prev_s_no_max
+
+    def prepare(self):
+        previous_sim_id = self._find_the_previous_sim_id()
+
+        gen = MCGenerator(self.config, self.structure)  # MC sampler for current set of iterations
+        gen.sampling()    # create the set of fire scenarios
 
         t = sec()
-        dfindex = 0
+        unsaved_df_records_no = 0
         save_interval = max([int(gen.n / 20), 2])  # save 20 times
         for s_no, scenario in enumerate(gen.set):
             progress_bar('Preparing files', s_no, gen.n)
-            s_no += prev_s_no_max + 1
-            scenario.create_fire_curve()
+            s_no += previous_sim_id + 1    # current iteration id
+            scenario.create_fire_curve()   # define fire scenario
             scenario.map(self.structure)
             if scenario.no_valid_elements:
                 print(f'[WARNING] Excluding scenario {s_no} from the analysis')
                 continue
-            for i_no, data in enumerate(scenario.mapped):
-                i = Iteration(scenario, data, f'{s_no}_{i_no}')
+            for section, section_coords in scenario.mapped.items():
+                i = Iteration(scenario, section_coords[0], f'{s_no}_{section}')
                 i.prepare_files()
 
                 # save this iteration data to the data frame
-                self.data_frame.loc[dfindex+prev_s_no_max*2] = [s_no, i_no, ctime(sec())] + data
-                dfindex += 1
+                i_data = ([s_no, section, ctime(sec())] + scenario.fire_location + section_coords[0] +
+                          [section_coords[1]] + [scenario.ceiling, section, 0, 0, 1, scenario.hrrpua, scenario.alpha])
+                self.data_frame.loc[len(self.data_frame)] = i_data
+                unsaved_df_records_no += 1
 
-            if ((s_no-prev_s_no_max) % save_interval == 0) or (dfindex == gen.n*2):
-                self._writedf2csv(save_interval*2)   # two iterations for each scenario
-        out(outpth, f'[OK] {dfindex} file sets were prepared ({round(sec() - t, 2)}) s           ')
+            if (s_no-previous_sim_id) % save_interval == 0:
+                self._writedf2csv(unsaved_df_records_no)
+                unsaved_df_records_no = 0
+
+        if unsaved_df_records_no:
+            self._writedf2csv(unsaved_df_records_no)
+        out(outpth, f'[OK] {gen.n * self.iterations_per_scenario} file sets were prepared ({round(sec() - t, 2)}) s           ')
 
         return self.data_frame
 
